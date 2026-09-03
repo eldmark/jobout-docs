@@ -25,10 +25,10 @@ y estado. Cada repo de servicio lleva un `AGENTS.md` corto que apunta acá.
 
 | Repo | Stack | Qué hace | ¿PII? |
 |---|---|---|---|
-| `jobout-docs` | Markdown | Este. Reglas, arquitectura, fases, bugs, traspaso | No |
-| `jobout-core-api` | Rust · Axum · SeaORM · PostgreSQL | Auth, usuarios, CVs, ofertas, scores, historial, pagos | **Sí, cifrada** |
-| `jobout-interview` | Python · FastAPI | Relay de OpenAI Realtime, animación facial del avatar | **Cero** |
-| `jobout-web` | Next.js | Interfaz, dashboard, sala de entrevista | No persiste |
+| [`jobout-docs`](https://github.com/eldmark/jobout-docs) | Markdown | Este. Reglas, arquitectura, fases, bugs, traspaso | No |
+| [`jobout-core-api`](https://github.com/eldmark/jobout-core-api) | Rust · Axum · SeaORM · PostgreSQL | Auth, usuarios, CVs, ofertas, scores, historial, pagos | **Sí, cifrada** |
+| `jobout-interview` | Python · FastAPI | Relay de OpenAI Realtime, animación facial del avatar. **Pendiente** | **Cero** |
+| [`jobout-web`](https://github.com/eldmark/jobout-web) | Next.js | Interfaz, dashboard, sala de entrevista | No persiste |
 
 **La frontera de seguridad más importante del proyecto:** `jobout-interview` no tiene
 credenciales de base de datos y no almacena nada. Recibe un token efímero de sesión y audio.
@@ -36,6 +36,21 @@ Si lo comprometen, no hay datos que robar. Ver
 [documentation/security.md](documentation/security.md).
 
 ---
+
+## Levantar el entorno
+
+```bash
+make dev     # backend + frontend + PostgreSQL, un comando
+make test    # pruebas de los dos repos
+make down
+```
+
+Los tres repos van clonados como hermanos. Ver
+[documentation/desarrollo.md](documentation/desarrollo.md).
+
+**Nunca commitees `docker-compose.yml` ni un `.env`.** Lo versionado son los `.example`. Si
+agregás una variable que el proyecto necesita, va al `.example` en el mismo PR con un valor
+falso — si no, el siguiente que clone levanta un entorno roto y no sabe por qué.
 
 ## Antes de tocar nada
 

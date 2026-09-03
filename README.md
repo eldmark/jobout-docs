@@ -13,10 +13,28 @@ CV y recibe feedback con puntuación. No es una bolsa de trabajo.
 
 | Repo | Stack | Qué hace |
 |---|---|---|
-| `jobout-docs` | Markdown | Este |
-| `jobout-core-api` | Rust · Axum · SeaORM · PostgreSQL | Datos, auth, scoring. Toda la PII vive acá |
-| `jobout-interview` | Python · FastAPI | Entrevista en tiempo real y avatar. Sin acceso a la BD |
-| `jobout-web` | Next.js | Interfaz |
+| [`jobout-docs`](https://github.com/eldmark/jobout-docs) | Markdown | Este |
+| [`jobout-core-api`](https://github.com/eldmark/jobout-core-api) | Rust · Axum · SeaORM · PostgreSQL | Datos, auth, scoring. Toda la PII vive acá |
+| `jobout-interview` | Python · FastAPI | Entrevista en tiempo real y avatar. Sin acceso a la BD. **Pendiente** |
+| [`jobout-web`](https://github.com/eldmark/jobout-web) | Next.js | Interfaz |
+
+## Levantar el proyecto
+
+```bash
+mkdir jobout && cd jobout
+git clone git@github.com:eldmark/jobout-docs.git
+git clone git@github.com:eldmark/jobout-core-api.git
+git clone git@github.com:eldmark/jobout-web.git
+
+cd jobout-docs && make dev
+```
+
+```
+http://localhost:3000   frontend
+http://localhost:8080   backend
+```
+
+Detalles en [documentation/desarrollo.md](documentation/desarrollo.md).
 
 ## Por dónde empezar
 
