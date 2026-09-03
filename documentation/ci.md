@@ -48,7 +48,8 @@ discute y se cambia el check — no se ignora.
 - cargo clippy --all-targets -- -D warnings
 - cargo test --lib                                    # unitarias
 - cargo test --test integration                       # contra PostgreSQL de prueba
-- cargo sqlx migrate run --dry-run                    # la migración aplica limpio
+- sea-orm-cli migrate up                               # la migración aplica limpio
+- sea-orm-cli migrate down -n 1                        # y revierte
 ```
 
 Con un servicio de PostgreSQL efímero por corrida:
