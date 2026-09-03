@@ -1,0 +1,81 @@
+# JobOut — entorno de desarrollo completo.
+#
+#   make dev        levanta todo
+#   make down       lo apaga
+#   make logs       sigue los registros
+#
+# `make dev` copia este archivo a docker-compose.yml la primera vez.
+# docker-compose.yml está en .gitignore: es tuyo, tocalo sin miedo.
+#
+# Requiere los tres repos clonados como hermanos:
+#
+#   jobout/
+#   ├── jobout-docs/        <- este, desde acá se levanta todo
+#   ├── jobout-core-api/
+#   └── jobout-web/
+#
+# ¿Puerto ocupado por otro proyecto? No toques este archivo: cambialo en .env
+#   WEB_PORT=3100
+#   API_PORT=8180
+
+name: jobout
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: jobout
+      POSTGRES_PASSWORD: jobout
+      POSTGRES_DB: jobout
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jobout -d jobout"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  core-api:
+    build:
+      context: ../jobout-core-api
+      target: dev
+    env_file: ../jobout-core-api/.env
+    environment:
+      # Gana sobre el .env: dentro de la red de compose el host es el nombre del servicio
+      DATABASE_URL: postgres://jobout:jobout@postgres:5432/jobout
+      PORT: 8080
+    ports:
+      - "${API_PORT:-8080}:8080"
+    volumes:
+      - ../jobout-core-api:/app
+      # Anónimos: el caché de compilación del contenedor no lo pisa el host
+      - cargo-registry:/usr/local/cargo/registry
+      - target-cache:/app/target
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ../jobout-web
+      target: dev
+    env_file: ../jobout-web/.env.local
+    environment:
+      # El navegador habla con localhost; el servidor de Next, con el nombre del servicio
+      NEXT_PUBLIC_API_URL: http://localhost:${API_PORT:-8080}
+      API_URL_INTERNA: http://core-api:8080
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    volumes:
+      - ../jobout-web:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - core-api
+
+volumes:
+  postgres-data:
+  cargo-registry:
+  target-cache:

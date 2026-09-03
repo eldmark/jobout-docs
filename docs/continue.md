@@ -7,6 +7,56 @@ Entrada más reciente arriba. No borres entradas viejas: se van quedando como hi
 
 ---
 
+## 2026-09-03 — Backend, frontend y entorno dockerizado
+
+**Qué se hizo**
+
+- Se crearon los repos **`jobout-core-api`** (Rust · Axum · SeaORM) y **`jobout-web`**
+  (Next.js), ambos dockerizados con tres etapas: `dev` con recarga en caliente, `builder`, y
+  `runtime` sin compilador, sin fuente y **sin root**.
+- **Un comando levanta todo:** `make dev` desde este repo. Verifica que los repos hermanos
+  estén clonados, copia los `.example` a sus versiones locales sin pisar nada, y levanta
+  backend, frontend y PostgreSQL.
+- Patrón `.example` versionado / local ignorado en los tres repos, para `docker-compose.yml` y
+  los `.env`. El CI de cada repo rechaza que se versione un local.
+- CI propio en cada repo: formato, lint, tipos, pruebas, **la imagen `runtime` compila**, sin
+  secretos, formato de rama y secciones del PR.
+- Guía completa en [`../documentation/desarrollo.md`](../documentation/desarrollo.md).
+
+**Casos de verdad ya escritos**
+
+Los dos repos arrancan con `/health` probado, y en ambos hay un caso que fija **qué campos
+puede devolver una ruta pública** — es una ruta sin autenticación, así que el test evita que
+alguien le agregue un dato de usuario sin darse cuenta.
+
+**Correcciones**
+
+- `documentation/ci.md` decía `cargo sqlx migrate`; con SeaORM es `sea-orm-cli migrate`.
+- La imagen de Rust quedó en `1.90-bookworm`: las dependencias transitivas piden rustc ≥ 1.88,
+  y `1.85` no compila. Anotado en `Cargo.toml` con `rust-version`.
+
+**Dos checks de CI que vale la pena conocer**
+
+- **`jobout-web`** rechaza cualquier `NEXT_PUBLIC_*SECRET`, `*TOKEN`, `*PASSWORD` o `*_KEY`.
+  Ese prefijo compila el valor dentro del bundle: un secreto con ese nombre es un secreto
+  público.
+- **`jobout-interview`**, cuando exista, rechaza cualquier cliente de PostgreSQL. Ese servicio
+  no habla con la base de datos por diseño; el check está especificado en `ci.md`.
+
+**Qué quedó a medias**
+
+Nada. Falta `jobout-interview` (Python · FastAPI), que no era parte de esta tarea.
+
+**Qué sigue**
+
+1. Agregar a Arturo, Lazaro, Jorge y Oscar como colaboradores en los tres repos.
+2. Migraciones SeaORM del esquema, por bloques: identidad → catálogos → perfil →
+   empresa/ofertas → entrevista.
+3. Fase 1 — auth con Clerk y perfil de usuario.
+4. Crear `jobout-interview` cuando toque la fase de entrevista.
+
+---
+
 ## 2026-09-03 — Repositorio, reglas de PR y contexto de investigación
 
 **Qué se hizo**
