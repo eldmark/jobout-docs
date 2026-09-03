@@ -39,6 +39,14 @@ http://localhost:8080   backend
 localhost:5432          PostgreSQL
 ```
 
+Si alguno de esos puertos ya está tomado por otro proyecto, `make dev` lo detecta **antes** de
+intentar levantar, te dice qué contenedor lo tiene y no arranca a medias:
+
+```
+El puerto 3000 (frontend) ya lo usa el contenedor 'apuntes-frontend-1'
+  Cambialo en .env:  WEB_PORT=<otro>
+```
+
 **La primera vez tarda varios minutos**: compila Rust desde cero e instala `node_modules`. Las
 siguientes son rápidas — las dependencias quedan en volúmenes.
 
@@ -53,6 +61,7 @@ siguientes son rápidas — las dependencias quedan en volúmenes.
 | `make test` | Pruebas de los dos repos |
 | `make migrate` | Aplica las migraciones |
 | `make setup` | Solo prepara los archivos locales, sin levantar |
+| `make ports` | Verifica que los puertos estén libres |
 | `make shell-api` / `make shell-web` | Una terminal dentro del contenedor |
 | `make clean` | Apaga y **borra los volúmenes** — se pierde la base de datos |
 
@@ -64,6 +73,9 @@ Mismo patrón en los tres repos:
 |---|---|
 | `docker-compose.example.yml` | `docker-compose.yml` |
 | `.env.example` | `.env` · `.env.local` |
+
+En `jobout-docs` el `.env` guarda solo los puertos; los secretos viven en los `.env` de cada
+servicio.
 
 **El archivo local es tuyo.** Cambiale los puertos, agregale un servicio, montá otra carpeta —
 nadie más lo ve y nada lo pisa. `make dev` solo lo crea si no existe.
@@ -128,8 +140,19 @@ detecta ahí, no al desplegar.
 
 ## Problemas comunes
 
-**El puerto ya está en uso.** Cambiá el mapeo en tu `docker-compose.yml` — es tuyo:
-`"3001:3000"`.
+**El puerto ya está en uso.** No toques el compose: cambialo en `jobout-docs/.env`.
+
+```bash
+WEB_PORT=3100
+API_PORT=8180
+DB_PORT=5532
+```
+
+`make dev` lo verifica antes de levantar. Para ver quién tiene un puerto:
+
+```bash
+docker ps --format '{{.Names}}\t{{.Ports}}' | grep 3000
+```
 
 **El backend no encuentra la base de datos.** Dentro de la red de compose el host es el nombre
 del servicio, `postgres`, no `localhost`. El compose ya fija `DATABASE_URL` con el valor

@@ -13,6 +13,10 @@
 #   ├── jobout-docs/        <- este, desde acá se levanta todo
 #   ├── jobout-core-api/
 #   └── jobout-web/
+#
+# ¿Puerto ocupado por otro proyecto? No toques este archivo: cambialo en .env
+#   WEB_PORT=3100
+#   API_PORT=8180
 
 name: jobout
 
@@ -24,7 +28,7 @@ services:
       POSTGRES_PASSWORD: jobout
       POSTGRES_DB: jobout
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -43,7 +47,7 @@ services:
       DATABASE_URL: postgres://jobout:jobout@postgres:5432/jobout
       PORT: 8080
     ports:
-      - "8080:8080"
+      - "${API_PORT:-8080}:8080"
     volumes:
       - ../jobout-core-api:/app
       # Anónimos: el caché de compilación del contenedor no lo pisa el host
@@ -60,10 +64,10 @@ services:
     env_file: ../jobout-web/.env.local
     environment:
       # El navegador habla con localhost; el servidor de Next, con el nombre del servicio
-      NEXT_PUBLIC_API_URL: http://localhost:8080
+      NEXT_PUBLIC_API_URL: http://localhost:${API_PORT:-8080}
       API_URL_INTERNA: http://core-api:8080
     ports:
-      - "3000:3000"
+      - "${WEB_PORT:-3000}:3000"
     volumes:
       - ../jobout-web:/app
       - /app/node_modules
