@@ -5,8 +5,9 @@ la conversación.
 
 | Término | Qué es |
 |---|---|
-| **Candidato** | El usuario. La persona que busca trabajo. Es nuestro cliente, no el reclutador |
-| **Recruiter** | Un entrevistador de IA del elenco fijo, con prompt, voz, foto y rúbrica propios. Ana, Martín, Laura, Carlos, Sofía… |
+| **Candidato** | La persona que busca trabajo. El lado que define el producto |
+| **Reclutador de empresa** | `company_recruiter`. Una persona de una empresa que publica ofertas y revisa aplicaciones. **No confundir con «recruiter»** |
+| **Recruiter** | `ai_recruiter`. Un entrevistador de **IA** del elenco fijo, con prompt, voz, foto y rúbrica propios. Ana, Martín, Laura, Carlos, Sofía… |
 | **Elenco** | El conjunto de recruiters disponibles. Fijo y con identidad, no generado al azar |
 | **Sesión** | Una entrevista simulada completa, de principio a fin. Se puede pausar y retomar |
 | **Turno** | Un intercambio dentro de una sesión: lo que dice el recruiter y lo que responde el candidato |
@@ -20,6 +21,8 @@ la conversación.
 | **Memoria del recruiter** | Lo que el recruiter recuerda de sesiones anteriores del mismo candidato. Es lo que le permite detectar inconsistencias |
 | **Token efímero de sesión** | Credencial de vida corta, alcance de una sola entrevista, sin identidad del usuario adentro. Lo único con lo que `jobout-interview` trabaja |
 | **PII** | Información personal identificable: email, teléfono, dirección, nombre real |
+| **Rúbrica versionada** | Una versión publicada de una rúbrica. Nunca se edita: se publica otra. Un score guarda con cuál se calculó |
+| **Match** | Score de compatibilidad entre un candidato y una oferta, precalculado |
 | **Fase** | Una unidad de trabajo planificada. Vive en `docs/working/` y se archiva al cerrar |
 
 ## Nombres de servicios

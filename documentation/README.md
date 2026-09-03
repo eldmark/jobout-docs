@@ -27,16 +27,17 @@ Las reglas de trabajo están en **[`AGENTS.md`](../AGENTS.md)**, en la raíz.
 
 | | |
 |---|---|
-| Etapa | **Pre-código.** Solo documentación |
+| Etapa | **Pre-código.** Documentación y esquema de BD |
 | Repos creados | `jobout-docs` (este). Los otros tres, pendientes |
 | Core backend | Rust · Axum · SeaORM · PostgreSQL |
 | Servicio de IA | Python · FastAPI |
 | Frontend | Next.js |
 | Auth | Clerk |
+| Alcance | **Two-sided**: candidatos y empresas |
 | Avatar | V1: foto estática con animación mínima |
-| Esquema de BD | **Por diseñar** — es el siguiente paso |
+| Esquema de BD | **Diseñado.** 40+ tablas en [db.md](db.md). Faltan las migraciones |
 
-Al 2026-09-02. El detalle de qué se hizo y qué sigue está en
+Al 2026-09-03. El detalle de qué se hizo y qué sigue está en
 [`docs/continue.md`](../docs/continue.md).
 
 ## Por dónde empezar

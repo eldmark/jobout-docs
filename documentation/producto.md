@@ -2,11 +2,13 @@
 
 ## La tesis
 
-**No vendemos una bolsa de empleos.** Competir con LinkedIn o Indeed es una guerra que se
-pierde: tienen los dos lados del mercado, tienen efecto de red y tienen quince años de ventaja.
+**No competimos con LinkedIn o Indeed en su terreno.** Esa guerra se pierde: tienen los dos
+lados del mercado, efecto de red y quince años de ventaja.
 
-Vendemos lo que ellos no hacen: **preparación**. El camino completo desde que alguien ve una
-oferta hasta que le va bien en la entrevista.
+Entramos por donde ellos no están: **preparación**. El camino completo desde que alguien ve una
+oferta hasta que le va bien en la entrevista. Las ofertas y las empresas vienen después, apoyadas
+en candidatos que llegan preparados — que es exactamente lo que una bolsa de empleos no puede
+ofrecer.
 
 ```
 Encontrar trabajo
@@ -179,6 +181,18 @@ cubre.
 | HU-31 | Como candidato, quiero practicar una entrevista específica para una oferta, para llegar preparado |
 | HU-32 | Como candidato, quiero llevar registro de dónde apliqué, para no repetir ni perder el hilo |
 
+### Empresa
+
+| ID | Historia |
+|---|---|
+| HU-50 | Como empresa, quiero registrar mi organización, para poder publicar ofertas |
+| HU-51 | Como reclutador, quiero publicar una oferta, para recibir aplicaciones |
+| HU-52 | Como reclutador, quiero ver quién aplicó a mi oferta, para revisar candidatos |
+| HU-53 | Como reclutador, quiero mover una aplicación entre estados, para llevar el proceso |
+| HU-54 | Como reclutador, quiero marcar candidatos favoritos, para no perderlos de vista |
+| HU-55 | Como reclutador, quiero publicar una oferta confidencial, para no exponer que estoy contratando |
+| HU-56 | Como empresa, quiero una membresía con vigencia, para acceder según lo que contraté |
+
 ### Privacidad
 
 | ID | Historia |
@@ -187,12 +201,30 @@ cubre.
 | HU-41 | Como candidato, quiero exportar mis datos, para llevármelos |
 | HU-42 | Como candidato, quiero la garantía de que mi información no entrena modelos, para subir mi CV tranquilo |
 
+## Los dos lados
+
+JobOut es **two-sided**: candidatos y empresas.
+
+| Lado | Quién | Qué obtiene |
+|---|---|---|
+| **Candidato** | La persona que busca trabajo | Preparación, entrevistas simuladas, feedback, ofertas compatibles. **Es el lado que define el producto** |
+| **Empresa** | Reclutadores de empresas | Publicar ofertas, revisar aplicaciones, marcar candidatos favoritos |
+
+La preparación no se vuelve un extra de una bolsa de empleos: es lo que nos distingue y lo que
+le da valor al lado empresa. Un candidato que practicó cinco entrevistas llega mejor que uno
+que aplicó a ciegas, y eso es lo que una empresa paga.
+
+**El problema del huevo y la gallina, dicho de frente:** las ofertas las cargan las empresas a
+mano. Sin candidatos no vienen empresas; sin ofertas los candidatos no vuelven. La salida es el
+orden de construcción: **el lado candidato aporta valor sin una sola oferta publicada** —las
+entrevistas simuladas funcionan solas—. Primero eso, después las empresas.
+
 ## Qué NO es JobOut
 
 Escrito para poder decir que no:
 
-- **No** es una bolsa de empleos propia con ofertas exclusivas.
-- **No** es un ATS ni una herramienta para reclutadores. El cliente es el candidato.
 - **No** es una red social ni tiene feed.
 - **No** es un generador de CVs desde cero.
 - **No** promete conseguir trabajo. Promete llegar preparado.
+- **No** filtra candidatos por edad, género ni estado civil. Es ilegal en la mayoría de los
+  mercados a los que apuntamos, y no se implementa aunque una empresa lo pida.

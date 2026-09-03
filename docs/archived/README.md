@@ -9,4 +9,6 @@ refleja el momento en que se escribió: puede estar desactualizado y está bien 
 
 ## Cerradas
 
-_Ninguna todavía._
+| Archivo | Qué contiene | Cerrada |
+|---|---|---|
+| [`revision-esquema-smart-talent.md`](revision-esquema-smart-talent.md) | Revisión del diagrama previo de bolsa de empleos: 7 bugs, renombres, columnas eliminadas por riesgo legal, y las decisiones que fijaron el alcance two-sided | 2026-09-03 |
