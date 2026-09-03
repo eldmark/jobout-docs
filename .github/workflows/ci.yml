@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  links:
+    name: Enlaces internos
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verificar que todo enlace relativo apunte a algo que existe
+        run: |
+          fallos=0
+          while IFS= read -r f; do
+            dir=$(dirname "$f")
+            while IFS= read -r link; do
+              [ -z "$link" ] && continue
+              case "$link" in http*|mailto:*) continue ;; esac
+              target="${link%%#*}"
+              [ -z "$target" ] && continue
+              if [ ! -e "$dir/$target" ]; then
+                echo "::error file=$f::enlace roto -> $target"
+                fallos=$((fallos+1))
+              fi
+            done < <(grep -oE '\]\([^)]+\)' "$f" | sed -E 's/^\]\(//; s/\)$//')
+          done < <(find . -name '*.md' -not -path './.git/*')
+          if [ "$fallos" -gt 0 ]; then
+            echo "$fallos enlace(s) roto(s)"
+            exit 1
+          fi
+          echo "Todos los enlaces internos resuelven"
+
+  secretos:
+    name: Sin secretos
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ningún archivo de secretos versionado
+        run: |
+          encontrados=$(git ls-files | grep -E '(^|/)\.env($|\.)|\.(pem|key|p8|p12)$' | grep -v '\.env\.example$' || true)
+          if [ -n "$encontrados" ]; then
+            echo "::error::archivos de secretos versionados:"
+            echo "$encontrados"
+            exit 1
+          fi
+          echo "Sin archivos de secretos"
+      - name: Ninguna credencial embebida
+        run: |
+          patrones='AKIA[0-9A-Z]{16}|sk_live_[0-9a-zA-Z]{16,}|sk-[A-Za-z0-9]{32,}|gh[pousr]_[A-Za-z0-9]{36,}|-----BEGIN [A-Z ]*PRIVATE KEY-----'
+          hits=$(git ls-files -z | xargs -0 grep -InE "$patrones" -- 2>/dev/null | grep -v '^.github/workflows/ci.yml:' || true)
+          if [ -n "$hits" ]; then
+            echo "::error::posible credencial embebida:"
+            echo "$hits"
+            exit 1
+          fi
+          echo "Sin credenciales embebidas"
+
+  pr:
+    name: PR completo
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      - name: La rama sigue el formato jb-##-slug
+        run: |
+          rama="${{ github.head_ref }}"
+          if ! echo "$rama" | grep -qE '^jb-[0-9]+-[a-z0-9-]+$'; then
+            echo "::error::rama '$rama' no sigue el formato jb-##-slug (ej: jb-07-implementation)"
+            exit 1
+          fi
+          echo "Rama: $rama"
+
+      - name: Las cuatro secciones del PR están completas
+        env:
+          CUERPO: ${{ github.event.pull_request.body }}
+        run: |
+          faltan=0
+          for s in "Qué se hizo" "Cómo se resolvió" "Archivos tocados" "Migraciones"; do
+            echo "$CUERPO" | grep -qF "$s" || { echo "::error::falta la sección '$s'"; faltan=1; }
+          done
+          [ "$faltan" -eq 0 ] || exit 1
+          echo "Las cuatro secciones están"
+
+      - name: Una migración obliga a actualizar db.md
+        run: |
+          cambiados=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          migracion=$(echo "$cambiados" | grep -E 'migration|migrations?/' || true)
+          if [ -n "$migracion" ]; then
+            echo "Migración detectada:"; echo "$migracion"
+            echo "$cambiados" | grep -q 'documentation/db.md' || {
+              echo "::error::el PR trae una migración pero no actualiza documentation/db.md"
+              exit 1
+            }
+            echo "documentation/db.md actualizado"
+          else
+            echo "Sin migraciones"
+          fi

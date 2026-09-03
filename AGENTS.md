@@ -95,39 +95,58 @@ Si tocás la base de datos:
 
 Un esquema documentado a medias es peor que no documentado: el siguiente agente le cree.
 
-### 3. Cada función nueva nace con su prueba unitaria
+### 3. Los casos de verdad se acuerdan antes de codear
+
+En `docs/working/faseN-*.md`, y el equipo los revisa ahí — discutir qué es correcto sobre
+código ya escrito sale mucho más caro. Después el test en rojo, después el código que lo pone
+en verde. **Un test que nunca falló no prueba nada.**
+
+### 4. Cada función nueva nace con su prueba unitaria
 
 No existe "las pruebas después". Una función sin prueba es una función que nadie va a poder
 refactorizar con confianza en tres meses.
 
-### 4. Cada endpoint o flujo entre servicios nace con su prueba de integración
+### 5. Cada endpoint o flujo entre servicios nace con su prueba de integración
 
 Escrita **al momento de implementarlo**, no en una fase de "agregar tests". Ver
-[documentation/test.md](documentation/test.md) para cómo probar la entrevista sin gastar
-llamadas de API.
+[documentation/test.md](documentation/test.md) y [documentation/ci.md](documentation/ci.md).
 
-### 5. PII
+### 6. PII
 
 Email, teléfono y dirección se cifran a nivel de aplicación antes de tocar la base de datos.
 **Nunca aparecen en logs**, ni en mensajes de error, ni en trazas. Los CVs van a S3 privado,
 nunca a un bucket público.
 
-### 6. `jobout-interview` no recibe PII ni credenciales de BD
+### 7. `jobout-interview` no recibe PII ni credenciales de BD
 
 Si te encontrás pasándole el email del usuario a ese servicio, la solución no es "pasarlo
 cifrado": es no pasarlo. Ese servicio trabaja con un id de sesión efímero y nada más.
 
-### 7. Toda ruta nueva nace autenticada
+### 8. Toda ruta nueva nace autenticada
 
 Si una ruta tiene que ser pública, va acompañada de un comentario que justifique por qué. Una
 ruta pública sin justificación se trata como bug.
 
-### 8. Seguí el patrón que ya existe
+### 9. Seguí el patrón que ya existe
 
 Antes de inventar una forma nueva de resolver algo, buscá cómo se resolvió lo mismo dos
 carpetas más allá. Un repo con tres formas de hacer lo mismo es un repo que nadie mantiene.
 
 ---
+
+## Ramas y pull requests
+
+Guía completa para personas: [`CONTRIBUTING.md`](CONTRIBUTING.md). Lo mínimo:
+
+- **Rama `jb-##-slug`.** El CI rechaza cualquier otro formato. Ej: `jb-07-implementation`
+- **Nunca se commitea directo a `main`.** Rama, PR, una aprobación, CI verde, squash merge
+- **Los casos de verdad se acuerdan en el archivo de fase ANTES de implementar.** Después se
+  escriben los tests (rojo), después el código (verde)
+- El cuerpo del PR lleva las cuatro secciones obligatorias: **qué se hizo · cómo se resolvió ·
+  archivos tocados · migraciones**. El CI verifica que estén
+- Si hay migración, `documentation/db.md` va actualizado en ese mismo PR. El CI lo verifica
+- Una rama = una tarea. Lo que descubras de paso va a [`docs/bugs.md`](docs/bugs.md) y a otra
+  rama
 
 ## Commits
 
@@ -175,6 +194,8 @@ todos porque el siguiente agente actúa sobre ella sin dudar.
 | [security.md](documentation/security.md) | Modelo de amenazas, cifrado de PII, secretos, política de privacidad |
 | [test.md](documentation/test.md) | Cómo correr y escribir pruebas en cada repo |
 | [glossary.md](documentation/glossary.md) | Score, confianza, claridad, sesión, nivel, panel |
+| [investigacion.md](documentation/investigacion.md) | El usuario (Luis), alternativas evaluadas, benchmark de LinkedIn. **De acá salen las decisiones** |
+| [ci.md](documentation/ci.md) | Qué corre el CI y qué bloquea el merge |
 
 ### Proceso — [`docs/`](docs/README.md)
 

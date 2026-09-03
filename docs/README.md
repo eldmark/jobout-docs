@@ -20,7 +20,9 @@ va la investigación, allá la conclusión.
 
 ```
 se planea  →  docs/working/faseN-nombre.md
-se ejecuta →  se marcan pasos, se anotan desvíos en el mismo archivo
+             se acuerdan los CASOS DE VERDAD antes de codear
+se ejecuta →  rama jb-##-slug, tests en rojo, después implementación
+              se marcan pasos, se anotan desvíos en el mismo archivo
 cierra     →  git mv docs/working/faseN-nombre.md docs/archived/
               y se anota el cierre en continue.md
 ```
@@ -80,13 +82,30 @@ Migración: `<nombre_de_la_migración_seaorm>`
 - [ ] 1. ...
 - [ ] 2. ...
 
-## Pruebas requeridas
+## Casos de verdad
 
-- Unitarias: ...
-- Integración: ...
+> **Se acuerdan ANTES de implementar.** El equipo los revisa acá; discutir qué es correcto
+> sobre código ya escrito sale mucho más caro. Cada caso tiene que poder convertirse en un
+> test uno a uno.
+
+| # | Caso | Tipo |
+|---|---|---|
+| 1 | Dada <entrada y estado>, pasa exactamente <esto> | unitaria / integración |
+
+Obligatorios en toda tarea que toque datos de usuario:
+
+| # | Caso | Tipo |
+|---|---|---|
+| S1 | El usuario A pide por id un recurso de B → 404, nunca el dato | integración |
+| S2 | Sin token → 401 | integración |
+| S3 | Un error provocado con datos sensibles no filtra PII en la respuesta ni en el log | integración |
+
+No son casos de verdad: «verificar que el perfil funciona bien», «probar los casos borde». No
+se puede escribir un test a partir de ellos.
 
 ## Criterios de cierre
 
+- [ ] Todos los casos de verdad tienen su test, y fallaron antes de pasar
 - [ ] Todas las pruebas verdes
 - [ ] Pantalla abierta en navegador y verificada
 - [ ] `documentation/` actualizado si cambió una regla permanente

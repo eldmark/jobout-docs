@@ -21,6 +21,9 @@ CV y recibe feedback con puntuación. No es una bolsa de trabajo.
 ## Por dónde empezar
 
 - **Soy un agente de IA** → [AGENTS.md](AGENTS.md). Empezá ahí, sin excepción.
+- **Voy a contribuir** → [CONTRIBUTING.md](CONTRIBUTING.md): ramas `jb-##-slug`, casos de
+  verdad antes de codear, las cuatro secciones del PR.
+- **Quiero saber por qué el producto es así** → [documentation/investigacion.md](documentation/investigacion.md).
 - **Vengo nuevo al proyecto** → [documentation/producto.md](documentation/producto.md), después
   [documentation/arquitectura.md](documentation/arquitectura.md).
 - **Voy a retomar trabajo** → [docs/continue.md](docs/continue.md).
@@ -32,6 +35,8 @@ CV y recibe feedback con puntuación. No es una bolsa de trabajo.
 
 ```
 AGENTS.md            reglas + índice. El punto de entrada
+CONTRIBUTING.md      ramas, PRs, revisión, TDD
+.github/             plantilla de PR y workflows de CI
 docs/                proceso: fases, bugs abiertos, traspaso de sesión
   continue.md        qué se hizo y qué sigue
   bugs.md            bugs abiertos

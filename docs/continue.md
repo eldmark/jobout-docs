@@ -7,6 +7,64 @@ Entrada más reciente arriba. No borres entradas viejas: se van quedando como hi
 
 ---
 
+## 2026-09-03 — Repositorio, reglas de PR y contexto de investigación
+
+**Qué se hizo**
+
+- Se creó el repo remoto y se configuró la protección de `main`.
+- **Reglas de contribución** en [`../CONTRIBUTING.md`](../CONTRIBUTING.md): ramas `jb-##-slug`,
+  casos de verdad antes de codear, TDD, las cuatro secciones obligatorias del PR y qué bloquea
+  un merge.
+- **Plantilla de PR** en `.github/pull_request_template.md`, con las cuatro secciones y la
+  lista de verificación previa a pedir revisión.
+- **CI** en `.github/workflows/ci.yml` para este repo, y el contrato para los otros tres en
+  [`../documentation/ci.md`](../documentation/ci.md).
+- Se parsearon los dos PDFs del proyecto y su contenido quedó en
+  [`../documentation/investigacion.md`](../documentation/investigacion.md): la persona (Luis
+  Estrada), el cuadro de alternativas y el benchmark contra LinkedIn.
+
+**El hallazgo que más cambió el producto**
+
+Dos fuentes independientes dijeron lo mismo: Luis —«la parte que no me convence mucho es la
+inclusión de la IA»— y el benchmark de LinkedIn, que marca «impulsar la inclusión innecesaria
+de IA generativa» como su defecto principal.
+
+De ahí sale una restricción que atraviesa todo: **la IA es el medio, nunca el pitch.** Se vende
+«practicá con Martín, CTO exigente», no «entrevistas con inteligencia artificial». Y explica por
+qué `interview_scores.breakdown` no es opcional en el esquema: un score sin explicación es
+exactamente el tipo de IA que a Luis no le convence.
+
+**Decisiones tomadas**
+
+| Decisión | Elección |
+|---|---|
+| Casos de verdad | Se definen en el **archivo de fase**, antes de implementar. El PR los ejecuta |
+| Protección de `main` | PR obligatorio, 1 aprobación, CI verde, sin push directo |
+| Merge | Squash. Un commit por PR |
+| Formato de rama | `jb-##-slug`. El CI lo rechaza si no cumple |
+| Plataforma | **Sitio web**, del cuadro de alternativas. Mismo impacto que la app móvil con un solo desarrollo, y la entrevista es una sesión larga sentado |
+
+**Qué quedó a medias**
+
+Nada. Falta que los otros cuatro del equipo tengan acceso al repo.
+
+**Qué sigue**
+
+1. Agregar a Arturo, Lazaro, Jorge y Oscar como colaboradores.
+2. Crear `jobout-core-api` con el mismo `CONTRIBUTING.md` y el CI de Rust de `ci.md`.
+3. Migraciones SeaORM del esquema, por bloques.
+4. Fase 1 — auth con Clerk y perfil de usuario.
+
+**Anotado para fase futura**
+
+**Skills validadas por desempeño en entrevistas.** Es lo único del benchmark que no se
+implementó: la validación comunitaria de LinkedIn necesita masa crítica. La versión que escala
+desde el primer día es respaldar una skill con la evidencia de las entrevistas —si Martín
+preguntó tres veces sobre concurrencia y las respuestas puntuaron alto, esa skill tiene
+evidencia y no un clic de un conocido—. No está en el esquema todavía.
+
+---
+
 ## 2026-09-03 — Esquema de base de datos
 
 **Qué se hizo**

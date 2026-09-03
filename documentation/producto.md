@@ -29,6 +29,26 @@ Feedback
 La referencia mental no es LinkedIn. Es **Duolingo**: rachas, niveles, progreso medible, y una
 razón para volver mañana.
 
+## El usuario
+
+**Luis Estrada**, 24 años, Guatemala, recién graduado de Ingeniería en Sistemas. Introvertido,
+le cuesta hablar con desconocidos. Su única experiencia son prácticas, **y las consiguió por
+conocer al contacto**: nunca estuvo en una entrevista real. Sabe programar; lo que no sabe es
+contarlo.
+
+Le puso **8/10** a la idea. Su reserva:
+
+> «La parte que no me convence mucho es la inclusión de la IA, pero si se incorpora de forma
+> correcta la idea tendría potencial.»
+
+**De ahí sale la restricción que atraviesa el producto: la IA es el medio, nunca el pitch.**
+Se vende «practicá con Martín, CTO exigente», no «entrevistas con inteligencia artificial». Un
+score llega siempre con las dos o tres cosas concretas que lo suben — un número mágico salido
+de un modelo es exactamente el tipo de IA que a Luis no le convence.
+
+El perfil completo, el cuadro de alternativas y el benchmark contra LinkedIn están en
+[investigacion.md](investigacion.md).
+
 ## La pantalla que resume el producto
 
 ```
@@ -223,7 +243,9 @@ entrevistas simuladas funcionan solas—. Primero eso, después las empresas.
 
 Escrito para poder decir que no:
 
-- **No** es una red social ni tiene feed.
+- **No** es una red social ni tiene feed. Es la crítica principal del benchmark: LinkedIn dejó
+  de enfocarse en trabajos.
+- **No** presenta la IA como el producto. La IA es el medio.
 - **No** es un generador de CVs desde cero.
 - **No** promete conseguir trabajo. Promete llegar preparado.
 - **No** filtra candidatos por edad, género ni estado civil. Es ilegal en la mayoría de los

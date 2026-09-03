@@ -23,6 +23,8 @@ la conversación.
 | **PII** | Información personal identificable: email, teléfono, dirección, nombre real |
 | **Rúbrica versionada** | Una versión publicada de una rúbrica. Nunca se edita: se publica otra. Un score guarda con cuál se calculó |
 | **Match** | Score de compatibilidad entre un candidato y una oferta, precalculado |
+| **Caso de verdad** | Afirmación verificable sobre el comportamiento correcto, acordada **antes** de implementar. Se convierte en un test uno a uno |
+| **Persona** | Luis Estrada. El usuario concreto contra el que se decide qué se construye y qué no |
 | **Fase** | Una unidad de trabajo planificada. Vive en `docs/working/` y se archiva al cerrar |
 
 ## Nombres de servicios
