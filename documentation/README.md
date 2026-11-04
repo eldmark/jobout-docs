@@ -22,6 +22,8 @@ código, **el código gana** y este documento tiene un bug: se arregla en el mis
 | [test.md](test.md) | Cómo correr y escribir pruebas en cada repo |
 | [ci.md](ci.md) | Qué corre el CI, qué bloquea el merge, el ciclo rojo→verde |
 | [desarrollo.md](desarrollo.md) | Levantar el entorno completo con un comando, Docker, `.example` contra local |
+| [identidad-visual.md](identidad-visual.md) | Logo, paleta, tipografía y tono de voz de la marca |
+| [negocio.md](negocio.md) | Planes, supuestos financieros, sostenibilidad social y tensiones por resolver |
 | [glossary.md](glossary.md) | Score, confianza, claridad, sesión, nivel, panel |
 
 Las reglas de trabajo están en **[`AGENTS.md`](../AGENTS.md)** (agentes) y
