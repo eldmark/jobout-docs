@@ -330,12 +330,18 @@ de 32 bytes en base64.
   re-registro del mismo email como cuenta nueva. La base queda con 1 usuario y 1 evento
   `account_deleted` sin datos personales, y el log del backend no contiene email ni contraseñas.
   El contrato que el agente web había supuesto coincidió con el real.
-- **S5 resuelto con un registro explícito de rutas** (`src/routes/registry.rs`) y un test que
-  escanea el código fuente. Limitación: no ve rutas en macros ni fuera de `src/`.
+- **S5, primera versión:** una lista escrita a mano más un test que escaneaba el código fuente.
+  Tenía límites (no veía rutas en macros ni fuera de `src/`) y se **reemplazó** en `jb-14` por una
+  tabla de rutas que protege por construcción: ver el último punto de esta lista.
 - **Desvío de B (borrado):** repetir `DELETE /me` con el token viejo da 401, no 204 idempotente;
   la cuenta ya no existe. Una contraseña incorrecta suma al mismo contador de intentos del login.
-- **Deuda anotada:** el SQL del contador de intentos está duplicado entre `auth.rs` y `me.rs`
-  (~20 líneas); conviene extraerlo a un módulo común.
+- **Deuda saldada (`jb-14-attempts-and-routes`):** el SQL del contador de intentos pasó a
+  `src/login_attempts.rs` con 8 pruebas propias, y el escaneo del código fuente se sustituyó por
+  `src/routes/table.rs`: la única forma de montar una ruta. Las protegidas reciben autenticación
+  al montarse (test T5: sigue protegida aunque el handler no pida `AuthUser`) y las públicas
+  exigen una justificación real. Seis mutaciones válidas, todas detectadas. Queda una limitación:
+  el compilador no impide escribir un `Router::new().route(...)` suelto en `lib.rs`; la revisión
+  del PR lo vería.
 - **CI roto en `main` descubierto y arreglado:** `cargo run --bin migration` (debía ser
   `-p migration`), `package-lock.json` sin versionar en web y una variable de Clerk que hacía
   fallar el chequeo de secretos.

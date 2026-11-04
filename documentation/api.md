@@ -98,9 +98,13 @@ Cuerpo máximo 8 KB (413 si se excede). Nada de lo que entra o sale se escribe e
 cascada eliminan candidato, roles, credenciales, refresh tokens y suscripciones. El token de
 acceso anterior pasa a 401 y el mismo email puede registrarse de nuevo como cuenta nueva.
 
-El registro de rutas vive en `src/routes/registry.rs` (tablas `PUBLIC`, con justificación
-obligatoria, y `PROTECTED`). Un test escanea `src/**/*.rs` y falla si alguien monta una ruta que
-no está en ninguna.
+**Las rutas se montan solo desde la tabla `src/routes/table.rs`.** Cada entrada declara su acceso:
+`Access::Public("por qué")` exige una justificación real, y `Access::Authenticated` aplica la
+autenticación **al montar la ruta**, aunque el handler se olvide de pedir `AuthUser`. Los módulos
+de rutas no construyen `Router`s: devuelven `Vec<RouteSpec>`. `tests/route_table.rs` ejercita la
+aplicación real (protegidas dan 401 con cualquier credencial inválida, los métodos declarados son
+los reales, la lista de rutas esperadas está fija y obliga a que una ruta nueva se revise).
+El límite de cuerpo (8 KB) es global.
 
 
 _Por definir, fase por fase._ Áreas previstas:

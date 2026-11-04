@@ -62,6 +62,8 @@ Entrada más reciente arriba. No borres entradas viejas: se van quedando como hi
   borrado real (`jb-11`) y las páginas de ingreso, registro, dashboard y borrado (`jb-12`).
 - Recorrido de punta a punta contra el backend real: todo correcto (detalle en
   `docs/working/fase1-identidad.md`).
+- Deuda saldada en `jb-14`: contador de intentos compartido y tabla de rutas que protege por
+  construcción (sustituye al escaneo del código fuente).
 - PRs apilados abiertos en los tres repos; el orden de merge está al inicio de cada uno.
 - **Falta para cerrar la fase:** que una persona recorra el flujo en un navegador real, mergear la
   pila, y mover `fase1-identidad.md` a `archived/`. OAuth sigue aplazado.
