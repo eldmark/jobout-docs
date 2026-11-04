@@ -17,7 +17,7 @@ código, **el código gana** y este documento tiene un bug: se arregla en el mis
 | [arquitectura.md](arquitectura.md) | Los cuatro repos y sus fronteras, el flujo de entrevista en tiempo real, evolución del avatar |
 | [db.md](db.md) | Esquema, migraciones SeaORM, qué columnas se cifran |
 | [api.md](api.md) | Contratos entre servicios, token efímero de entrevista, qué nunca cruza la frontera |
-| [frontend.md](frontend.md) | Next.js, sala de entrevista, capa de audio, Clerk |
+| [frontend.md](frontend.md) | Next.js, sala de entrevista, capa de audio, sesión |
 | [security.md](security.md) | Modelo de amenazas, cifrado de PII, secretos, política de privacidad |
 | [test.md](test.md) | Cómo correr y escribir pruebas en cada repo |
 | [ci.md](ci.md) | Qué corre el CI, qué bloquea el merge, el ciclo rojo→verde |
@@ -38,7 +38,7 @@ Las reglas de trabajo están en **[`AGENTS.md`](../AGENTS.md)** (agentes) y
 | Core backend | Rust · Axum · SeaORM · PostgreSQL |
 | Servicio de IA | Python · FastAPI |
 | Frontend | Next.js |
-| Auth | Clerk |
+| Auth | JWT propio en el MVP; Clerk si escala |
 | Alcance | **Two-sided**: candidatos y empresas |
 | Avatar | V1: foto estática con animación mínima |
 | Esquema de BD | **Diseñado.** 40+ tablas en [db.md](db.md). Faltan las migraciones |

@@ -150,6 +150,19 @@ en `privacy_events`.
 | `expires_at` | timestamptz | not null |
 | `revoked_at` | timestamptz | null. Lleno = revocado (logout o rotación) |
 
+
+### `login_attempts`
+
+| Columna | Tipo | Notas |
+|---|---|---|
+| `email_hash` | bytea | PK. El HMAC del email, nunca el email |
+| `failures` | integer | Fallos seguidos dentro de la ventana |
+| `window_started_at` | timestamptz | Inicio de la ventana de 15 minutos |
+
+Sin FK a `users` a propósito: también cuenta emails que no existen, para que el bloqueo (429
+tras 5 fallos) no revele cuáles tienen cuenta. Un ingreso correcto borra la fila. Las filas
+vencidas se pisan solas al próximo fallo; limpiarlas en lote queda pendiente.
+
 ### `roles` · `permissions` · `role_permissions` · `user_roles`
 
 `roles` y `permissions`: `id` (uuid v7) · `code` (unique) · `name` · `description` ·

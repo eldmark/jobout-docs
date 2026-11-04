@@ -45,6 +45,17 @@ Entrada más reciente arriba. No borres entradas viejas: se van quedando como hi
 2. Paso 2: migraciones del bloque identidad y de planes, con `db.md`, contra PostgreSQL real.
 3. Pasos 3 a 8 de la fase.
 
+**Actualización posterior (misma fecha)**
+
+- Tres agentes en paralelo, cada uno en su worktree y rama: migraciones de identidad y planes
+  (`jb-06-identity-migrations`), contraseñas y JWT (`jb-07-password-jwt`) y marca y sesión del
+  frontend (`jb-08-brand-session`). Verificado por separado: todo en verde.
+- Rama de integración `jb-09-register-login` en core-api (junta `jb-06` y `jb-07`) con `register`
+  y `login` terminados y probados contra PostgreSQL real y contra el binario.
+- Logos vectorizados desde el PDF de identidad, en `brand-assets/` (fuera de los repos).
+- Falta: `refresh` y `logout`, `GET /me`, `DELETE /me`, páginas de ingreso y registro, y el
+  recorrido en navegador. OAuth sigue aplazado.
+
 **Alerta de negocio:** el modelo financiero calcula Q0.80 por simulación «de texto», pero el
 producto es voz en tiempo real. Hay que estimar el costo real antes de fijar precios
 (ver [`../documentation/negocio.md`](../documentation/negocio.md)).

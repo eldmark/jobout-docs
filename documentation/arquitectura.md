@@ -44,7 +44,7 @@ Multi-repo. Cada uno lleva un `AGENTS.md` corto que apunta a `jobout-docs`.
         │  cifrada  │ │privado│ │  Realtime   │ │  animación  │
         └───────────┘ └───────┘ └─────────────┘ └─────────────┘
 
-        Clerk ──► valida JWT en core-api (JWKS)
+        core-api emite y valida sus JWT (MVP; Clerk si escala)
 ```
 
 `jobout-interview` **no tiene flecha hacia PostgreSQL ni hacia S3**. Es deliberado. Ver
@@ -103,8 +103,12 @@ Se arranca en V1 a propósito: el valor está en el recruiter, no en la cara.
 
 ## Autenticación
 
-Clerk. `jobout-web` obtiene el JWT, `jobout-core-api` lo valida contra el JWKS de Clerk. No
-guardamos contraseñas: menos superficie de ataque sobre lo más sensible que existe.
+**MVP: autenticación propia.** `jobout-core-api` registra, verifica contraseñas (Argon2id) y
+emite sus propios JWT de acceso (HS256, 15 minutos, solo `sub`, `iat`, `exp`, `iss`, `aud`) y
+refresh tokens rotativos que guarda solo como hash. Así los datos de la persona viven en un solo
+lugar. **Clerk queda como camino de escala**: `users.clerk_user_id` existe y es nulo en el MVP.
+Ver `docs/working/fase1-identidad.md` para la decisión y lo que se pierde (Google, MFA,
+recuperación de contraseña).
 
 `jobout-interview` **no valida JWT de usuario**. Recibe un **token efímero de sesión** que
 emite `core-api`, con vigencia de minutos, alcance de una sola sesión de entrevista y sin
