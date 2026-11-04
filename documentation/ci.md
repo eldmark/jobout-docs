@@ -70,6 +70,13 @@ producción el mes que viene.
 
 **Check propio del repo:** toda migración implementa `down`. Un `up` sin su `down` no pasa.
 
+```bash
+grep -rLn 'async fn down' migration/src --include='m[0-9]*.rs'
+```
+
+`m[0-9]*` y no `m*`: las migraciones de SeaORM se llaman `m20260903_120000_nombre.rs`, y un
+glob `m*.rs` también matchea `main.rs` — el check fallaba en un repo sin ninguna migración.
+
 ### `jobout-interview` — Python
 
 ```yaml
