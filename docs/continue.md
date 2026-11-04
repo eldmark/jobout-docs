@@ -16,7 +16,7 @@ Entrada más reciente arriba. No borres entradas viejas: se van quedando como hi
 - Deuda de cierre: [`jb-16`](https://github.com/eldmark/jobout-core-api/pull/8) hace que el CI pruebe
   todos los crates del workspace (la prueba de UUID v7 nunca corría) y `jb-17` arregla `make test`,
   `make migrate` y `test.md`. **Siguen abiertos hasta que alguien los revise.**
-- Se redactó [`working/fase2-perfil-cv.md`](working/fase2-perfil-cv.md) con unos 110 casos de
+- Se redactó [`working/fase2-perfil-cv.md`](working/fase2-perfil-cv.md) con 124 casos de
   verdad. **No hay código de la Fase 2.**
 
 **Lo que la Fase 2 descubrió que el diseño no decía**
