@@ -110,7 +110,7 @@ Cada paso es una rama `jb-##-slug` y un PR.
 
 - [ ] 0. **Este documento**: el equipo revisa y acuerda los casos de verdad.
 - [x] 1. Módulo `crypto` (cifrado + HMAC + carga de claves). Solo pruebas unitarias. *(2026-11-04, rama `jb-05-pii-crypto` en core-api)*
-- [ ] 2. Migraciones + entidades SeaORM + `db.md`. Pruebas contra PostgreSQL real.
+- [x] 2. Migraciones + `db.md`. Pruebas contra PostgreSQL real. *(2026-11-04, rama `jb-06-identity-migrations`; las entidades SeaORM quedan para el primer paso que las consuma)*
 - [ ] 3. Contraseñas (Argon2id) y JWT: emisión y validación. Actualiza los docs de Clerk.
 - [ ] 4. `register`, `login`, `refresh`, `logout`.
 - [ ] 5. `GET /me`, `DELETE /me` y `privacy_events`.
@@ -290,3 +290,19 @@ de 32 bytes en base64.
   cuando `register` las necesite, junto con los valores de desarrollo.
 - **Deuda ajena a la fase:** `cargo fmt --check` falla en `tests/health.rs` de `main`. Lo
   corrige la rama `jb-02-fix-dev-stale-binary`, que sigue sin mergear.
+- **2026-11-04 — paso 2.** Tres migraciones con `up`/`down` y 15 pruebas de integración
+  (`tests/schema.rs`, E1–E6 y E8–E15; E7 es unitaria en `migration/src/lib.rs`) contra
+  PostgreSQL real, una base `test_<uuid>` por prueba, borrada al terminar. URL de
+  administración en `TEST_DATABASE_URL` (CI la define). Se comprobó el rojo antes de migrar:
+  12 de 15 fallaban; E2, E4 y E14 pasaban en falso (sin tablas, «no insertar» también es
+  error), así que E4 y E14 ahora exigen el tipo de error (FK / unicidad).
+  - **Entidades SeaORM: no se generaron.** El paso decía «migraciones + entidades»; sin código
+    que las use serían archivos muertos. Se generan en el paso 3/4 con la primera consulta.
+  - Las PK de `user_roles` y `role_permissions` son compuestas (sin `id`), y `plans`/`roles`
+    llevan `code` único. `user_credentials` usa `user_id` como PK (1:1 con `users`).
+  - `privacy_events.kind` arranca con un solo valor, `account_deleted`; el resto del enum de
+    `db.md` (`export_*`, `deletion_*`) se agrega con migración cuando exista el caso.
+  - Simulaciones por plan sembradas desde `negocio.md`: free 1, student 10, standard 12,
+    business sin tope.
+  - Se agregó `migration` como dependencia de `core-api` (para correr migraciones desde la
+    app y las pruebas) y `TEST_DATABASE_URL` al job de pruebas del CI.
