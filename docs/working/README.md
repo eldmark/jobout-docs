@@ -11,4 +11,4 @@ Cuando una fase cumple todos sus criterios de cierre, se mueve a
 
 ## Activas
 
-_Ninguna todavía._
+- [`fase1-identidad.md`](fase1-identidad.md) — cuenta, sesión y borrado (HU-01, HU-05). Casos de verdad pendientes de revisión.

@@ -7,6 +7,50 @@ Entrada más reciente arriba. No borres entradas viejas: se van quedando como hi
 
 ---
 
+## 2026-11-04 — Documentación de marca y negocio, Fase 1 y módulo de cifrado
+
+**Qué se hizo**
+
+- Se leyeron los documentos del emprendimiento (identidad de marca, sostenibilidad social,
+  indicadores financieros y la plantilla de costos) y quedaron en
+  [`../documentation/identidad-visual.md`](../documentation/identidad-visual.md) y
+  [`../documentation/negocio.md`](../documentation/negocio.md).
+- Se redactó [`working/fase1-identidad.md`](working/fase1-identidad.md) con sus casos de
+  verdad. **Decisión de MVP:** autenticación propia con JWT, sin Clerk; Clerk queda como camino
+  de escala. Se agregan planes de usuario (`plans`, `user_subscriptions`).
+- Paso 1 de la fase, en `jobout-core-api` (rama `jb-05-pii-crypto`): módulo `crypto` con
+  AES-256-GCM y HMAC del email, 17 pruebas, escritas primero en rojo.
+- El entorno quedó verde: `jobout-web` con dependencias instaladas y pruebas pasando.
+
+**Decisiones tomadas**
+
+| Decisión | Elección |
+|---|---|
+| Autenticación del MVP | JWT propio, Argon2id, refresh rotativo. Sin Clerk |
+| Membresías de usuario | Tablas nuevas `plans` y `user_subscriptions`; `memberships` sigue siendo de empresas |
+| «Entrar con Google» | Fuera del MVP; HU-01 queda cubierta solo con email |
+
+**Qué quedó a medias**
+
+- Nada commiteado: los cambios están en las ramas `jb-04-fase1-identidad` (docs) y
+  `jb-05-pii-crypto` (core-api), solo en local.
+- El push por SSH no funcionó: la clave personal tiene passphrase y la sesión no tenía agente.
+- Las ramas `jb-02-fix-dev-stale-binary` (core-api) y `jb-03-ci-migration-glob` (docs) no están
+  en `main` local; falta confirmar si se mergearon en GitHub.
+- `jobout-web/package-lock.json` quedó sin versionar.
+
+**Qué sigue**
+
+1. Que el equipo revise los casos de verdad de `fase1-identidad.md`.
+2. Paso 2: migraciones del bloque identidad y de planes, con `db.md`, contra PostgreSQL real.
+3. Pasos 3 a 8 de la fase.
+
+**Alerta de negocio:** el modelo financiero calcula Q0.80 por simulación «de texto», pero el
+producto es voz en tiempo real. Hay que estimar el costo real antes de fijar precios
+(ver [`../documentation/negocio.md`](../documentation/negocio.md)).
+
+---
+
 ## 2026-09-03 — Backend, frontend y entorno dockerizado
 
 **Qué se hizo**

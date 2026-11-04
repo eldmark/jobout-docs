@@ -208,6 +208,8 @@ todos porque el siguiente agente actúa sobre ella sin dudar.
 | [frontend.md](documentation/frontend.md) | Next.js, rutas, estado, Clerk, capa de audio |
 | [security.md](documentation/security.md) | Modelo de amenazas, cifrado de PII, secretos, política de privacidad |
 | [test.md](documentation/test.md) | Cómo correr y escribir pruebas en cada repo |
+| [identidad-visual.md](documentation/identidad-visual.md) | Paleta, tipografías, logo y tono de voz |
+| [negocio.md](documentation/negocio.md) | Planes, números del emprendimiento, sostenibilidad social |
 | [glossary.md](documentation/glossary.md) | Score, confianza, claridad, sesión, nivel, panel |
 | [investigacion.md](documentation/investigacion.md) | El usuario (Luis), alternativas evaluadas, benchmark de LinkedIn. **De acá salen las decisiones** |
 | [ci.md](documentation/ci.md) | Qué corre el CI y qué bloquea el merge |
