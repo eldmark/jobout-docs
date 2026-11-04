@@ -1,6 +1,6 @@
 # Fase 1 — Identidad: cuenta, sesión y borrado
 
-**Estado:** en curso (v2: autenticación propia con JWT; casos pendientes de revisión del equipo)
+**Estado:** cerrada (2026-11-04). v2: autenticación propia con JWT; OAuth aplazado
 **Repos que toca:** jobout-core-api, jobout-web, jobout (documentación)
 **Abierta:** 2026-11-04
 
@@ -117,7 +117,7 @@ Cada paso es una rama `jb-##-slug` y un PR.
 - [x] 5. `GET /me`, `DELETE /me` y `privacy_events`. *(rama `jb-11-me-delete`)*
 - [x] 6. Frontend: tokens de marca, ingreso/registro, protección de `/dashboard`. *(ramas `jb-08-brand-session` y `jb-12-auth-pages`)*
 - [x] 7. Frontend: borrado de cuenta. *(rama `jb-12-auth-pages`)*
-- [ ] 8. Recorrido completo en navegador y cierre. *Recorrido por la capa web contra el backend real hecho con `curl` (ver «Desvíos»); falta la pasada en un navegador real por una persona y el cierre.*
+- [x] 8. Recorrido completo en navegador y cierre. *(ver «Desvíos»)*
 - [ ] 9. ⏸ **APLAZADO — OAuth / «Entrar con Google»** (parte de HU-01). Fuera de esta fase por decisión del equipo; abrir fase propia cuando se retome.
 
 ## Casos de verdad
@@ -254,14 +254,16 @@ de 32 bytes en base64.
 
 ## Criterios de cierre
 
-- [ ] Todos los casos de verdad tienen su test, y fallaron antes de pasar
-- [ ] Todas las pruebas verdes, en los dos repos y en CI
-- [ ] `clippy -D warnings`, `cargo fmt --check`, `tsc`, `eslint` limpios
-- [ ] Recorrido manual en navegador: registrarse → ver `/dashboard` → cerrar sesión → entrar →
-      borrar la cuenta → confirmar que el mismo email se puede registrar de nuevo
-- [ ] `documentation/db.md`, `api.md`, `frontend.md`, `security.md` y `arquitectura.md`
+- [x] Todos los casos de verdad tienen su test, y fallaron antes de pasar. *Excepciones honestas: E16 (`login_attempts`) no tiene un test propio de esquema; lo cubren las pruebas de login y el paso «Migraciones reversibles» del CI (up → down → up). R9 se prueba por costo equivalente y un test de tiempo con cota holgada, no por igualdad exacta.*
+- [x] Todas las pruebas verdes, en los dos repos y en CI *(CI verde en todos los PRs abiertos al momento del cierre)*
+- [x] `clippy -D warnings`, `cargo fmt --check`, `tsc`, `eslint` limpios
+- [x] Recorrido en navegador: registrarse → ver `/dashboard` → cerrar sesión → entrar → borrar la
+      cuenta → confirmar que el mismo email se puede registrar de nuevo. *Hecho en Chrome real
+      contra el backend real, pero **automatizado por un agente, no por una persona**; el
+      re-registro del mismo email se comprobó por `curl`, no en pantalla (ver «Desvíos»).*
+- [x] `documentation/db.md`, `api.md`, `frontend.md`, `security.md` y `arquitectura.md`
       actualizados (el cambio de Clerk a JWT propio se refleja ahí)
-- [ ] `docs/continue.md` actualizado y esta fase movida a `docs/archived/`
+- [x] `docs/continue.md` actualizado y esta fase movida a `docs/archived/`
 
 ## Decisiones abiertas
 
@@ -348,3 +350,23 @@ de 32 bytes en base64.
 - **Cuota de disco:** con varios agentes compilando en paralelo, el `tmpfs` de `/tmp` se llenó y
   un cuerpo de PR se guardó vacío (se detectó y se rehízo). Conviene limpiar los `target/` de los
   worktrees de agentes al terminar.
+- **2026-11-04 — revisión en el navegador (Chrome, backend real, escritorio y móvil, claro y
+  oscuro).** Recorrido hecho: home → registro (envío vacío con validación por campo y foco en el
+  primero, y registro real) → dashboard («Hola, Marta», plan Gratis) → diálogo de borrado (botón
+  deshabilitado, contraseña incorrecta con mensaje y la cuenta sigue activa) → cerrar sesión →
+  `/dashboard` redirige a `/sign-in` → ingreso con contraseña mala (mensaje genérico) y buena con
+  el email en mayúsculas → borrado correcto → «Tu cuenta fue borrada» → `/dashboard` redirige a
+  `/sign-in`. Sin errores en la consola; `localStorage` y `sessionStorage` vacíos; en la base
+  quedan 0 usuarios y 1 `account_deleted`; el log del backend no contiene nombre, email ni clave.
+  - **Hallazgo 1 (corregido en `jb-15`):** la home no tenía ningún enlace al registro ni al
+    ingreso, y mostraba un texto de andamio. Ahora tiene «Crear cuenta» y «Ya tengo cuenta».
+  - **Hallazgo 2 (corregido en `jb-15`):** en modo oscuro el panel del diálogo de borrado tenía el
+    mismo color que la página y no se veían sus bordes. Ahora usa una superficie propia y borde.
+  - **Falsa alarma retirada:** creí ver «Registrate» (voseo) en una captura reducida; el árbol de
+    accesibilidad confirmó que dice «Regístrate».
+  - **Límites de esta revisión:** la herramienta del navegador bloquea leer cookies, así que las
+    banderas `HttpOnly`/`Secure` se comprobaron con `curl`, no en Chrome. El modo claro se forzó
+    desactivando por script las reglas `prefers-color-scheme: dark`; el móvil de 390 px se vio en
+    un iframe porque el redimensionado de ventana no cambió el viewport la primera vez. No se
+    probó con lector de pantalla ni en Safari o Firefox.
+

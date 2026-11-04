@@ -15,7 +15,7 @@ Entrada más reciente arriba. No borres entradas viejas: se van quedando como hi
   indicadores financieros y la plantilla de costos) y quedaron en
   [`../documentation/identidad-visual.md`](../documentation/identidad-visual.md) y
   [`../documentation/negocio.md`](../documentation/negocio.md).
-- Se redactó [`working/fase1-identidad.md`](working/fase1-identidad.md) con sus casos de
+- Se redactó [`archived/fase1-identidad.md`](archived/fase1-identidad.md) con sus casos de
   verdad. **Decisión de MVP:** autenticación propia con JWT, sin Clerk; Clerk queda como camino
   de escala. Se agregan planes de usuario (`plans`, `user_subscriptions`).
 - Paso 1 de la fase, en `jobout-core-api` (rama `jb-05-pii-crypto`): módulo `crypto` con
@@ -61,7 +61,7 @@ Entrada más reciente arriba. No borres entradas viejas: se van quedando como hi
 - Terminaron los pasos 4 a 7 de la Fase 1: `refresh`/`logout` (`jb-10`), `AuthUser` y `/me` con
   borrado real (`jb-11`) y las páginas de ingreso, registro, dashboard y borrado (`jb-12`).
 - Recorrido de punta a punta contra el backend real: todo correcto (detalle en
-  `docs/working/fase1-identidad.md`).
+  `docs/archived/fase1-identidad.md`).
 - Deuda saldada en `jb-14`: contador de intentos compartido y tabla de rutas que protege por
   construcción (sustituye al escaneo del código fuente).
 - PRs apilados abiertos en los tres repos; el orden de merge está al inicio de cada uno.
