@@ -122,3 +122,14 @@ Reglas cortas, para tenerlas en la cabeza:
 - Definir el proceso de rotación de claves de cifrado de PII.
 - Rate limiting por usuario en las sesiones de entrevista, que además contiene el costo.
 - Revisión de seguridad antes del primer usuario real.
+
+## Sesión: refresh y borrado (Fase 1)
+
+- **Rotación con detección de robo.** Cada `refresh` revoca el token usado y entrega uno nuevo,
+  en una operación atómica. Reusar un token ya rotado o revocado revoca **todas** las sesiones
+  del usuario: o lo robaron, o se está usando dos veces.
+- Respuesta única (`sesion_invalida`) para token desconocido, expirado o reutilizado.
+- `DELETE /me` exige la contraseña, cuenta los intentos fallidos con el mismo contador de
+  `login_attempts` y deja constancia sin datos personales en `privacy_events`.
+- Los errores de base de datos se registran por categoría, nunca con su texto: puede traer
+  valores de la fila.

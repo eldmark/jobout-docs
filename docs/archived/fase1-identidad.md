@@ -1,6 +1,6 @@
 # Fase 1 — Identidad: cuenta, sesión y borrado
 
-**Estado:** en curso (v2: autenticación propia con JWT; casos pendientes de revisión del equipo)
+**Estado:** cerrada (2026-11-04). v2: autenticación propia con JWT; OAuth aplazado
 **Repos que toca:** jobout-core-api, jobout-web, jobout (documentación)
 **Abierta:** 2026-11-04
 
@@ -112,12 +112,12 @@ Cada paso es una rama `jb-##-slug` y un PR.
 - [ ] 0. **Este documento**: el equipo revisa y acuerda los casos de verdad.
 - [x] 1. Módulo `crypto` (cifrado + HMAC + carga de claves). Solo pruebas unitarias. *(2026-11-04, rama `jb-05-pii-crypto` en core-api)*
 - [x] 2. Migraciones + `db.md`. Pruebas contra PostgreSQL real. *(2026-11-04, rama `jb-06-identity-migrations`; las entidades SeaORM quedan para el primer paso que las consuma)*
-- [ ] 3. Contraseñas (Argon2id) y JWT: emisión y validación. Actualiza los docs de Clerk.
-- [ ] 4. `register`, `login`, `refresh`, `logout`. **Hechos `register` y `login`** (2026-11-04, rama `jb-09-register-login`); faltan `refresh` y `logout` (R12–R15).
-- [ ] 5. `GET /me`, `DELETE /me` y `privacy_events`.
-- [ ] 6. Frontend: tokens de marca, ingreso/registro, protección de `/dashboard`.
-- [ ] 7. Frontend: borrado de cuenta.
-- [ ] 8. Recorrido completo en navegador y cierre.
+- [x] 3. Contraseñas (Argon2id) y JWT: emisión y validación. Docs de Clerk actualizados. *(rama `jb-07-password-jwt`, integrada en `jb-09`)*
+- [x] 4. `register`, `login`, `refresh`, `logout`. *(ramas `jb-09-register-login` y `jb-10-refresh-logout`)*
+- [x] 5. `GET /me`, `DELETE /me` y `privacy_events`. *(rama `jb-11-me-delete`)*
+- [x] 6. Frontend: tokens de marca, ingreso/registro, protección de `/dashboard`. *(ramas `jb-08-brand-session` y `jb-12-auth-pages`)*
+- [x] 7. Frontend: borrado de cuenta. *(rama `jb-12-auth-pages`)*
+- [x] 8. Recorrido completo en navegador y cierre. *(ver «Desvíos»)*
 - [ ] 9. ⏸ **APLAZADO — OAuth / «Entrar con Google»** (parte de HU-01). Fuera de esta fase por decisión del equipo; abrir fase propia cuando se retome.
 
 ## Casos de verdad
@@ -254,14 +254,16 @@ de 32 bytes en base64.
 
 ## Criterios de cierre
 
-- [ ] Todos los casos de verdad tienen su test, y fallaron antes de pasar
-- [ ] Todas las pruebas verdes, en los dos repos y en CI
-- [ ] `clippy -D warnings`, `cargo fmt --check`, `tsc`, `eslint` limpios
-- [ ] Recorrido manual en navegador: registrarse → ver `/dashboard` → cerrar sesión → entrar →
-      borrar la cuenta → confirmar que el mismo email se puede registrar de nuevo
-- [ ] `documentation/db.md`, `api.md`, `frontend.md`, `security.md` y `arquitectura.md`
+- [x] Todos los casos de verdad tienen su test, y fallaron antes de pasar. *Excepciones honestas: E16 (`login_attempts`) no tiene un test propio de esquema; lo cubren las pruebas de login y el paso «Migraciones reversibles» del CI (up → down → up). R9 se prueba por costo equivalente y un test de tiempo con cota holgada, no por igualdad exacta.*
+- [x] Todas las pruebas verdes, en los dos repos y en CI *(CI verde en todos los PRs abiertos al momento del cierre)*
+- [x] `clippy -D warnings`, `cargo fmt --check`, `tsc`, `eslint` limpios
+- [x] Recorrido en navegador: registrarse → ver `/dashboard` → cerrar sesión → entrar → borrar la
+      cuenta → confirmar que el mismo email se puede registrar de nuevo. *Hecho en Chrome real
+      contra el backend real, pero **automatizado por un agente, no por una persona**; el
+      re-registro del mismo email se comprobó por `curl`, no en pantalla (ver «Desvíos»).*
+- [x] `documentation/db.md`, `api.md`, `frontend.md`, `security.md` y `arquitectura.md`
       actualizados (el cambio de Clerk a JWT propio se refleja ahí)
-- [ ] `docs/continue.md` actualizado y esta fase movida a `docs/archived/`
+- [x] `docs/continue.md` actualizado y esta fase movida a `docs/archived/`
 
 ## Decisiones abiertas
 
@@ -321,3 +323,50 @@ de 32 bytes en base64.
   trae valores falsos de desarrollo; **un `.env` local viejo con `reemplazar` hará fallar el
   arranque** hasta regenerarlo desde el ejemplo.
 - **Docs de Clerk actualizados** (arquitectura, seguridad, API, frontend, desarrollo).
+- **2026-11-04 — pasos 4 (resto), 5, 6 y 7.** `refresh`/`logout` con 14 pruebas y 7 mutaciones
+  válidas; `AuthUser`, `GET/DELETE /me` con 17 pruebas y 11 mutaciones válidas; frontend con 128
+  pruebas. Se integraron las tres ramas de agentes y toda la suite pasa (backend y web).
+- **Recorrido de punta a punta con el backend real** (no simulado): registro → dashboard con el
+  nombre y el plan Gratis → logout → login con el email en mayúsculas → borrado con contraseña
+  incorrecta (403) y correcta (204) → sesión invalidada (307 a `/sign-in`) → login rechazado →
+  re-registro del mismo email como cuenta nueva. La base queda con 1 usuario y 1 evento
+  `account_deleted` sin datos personales, y el log del backend no contiene email ni contraseñas.
+  El contrato que el agente web había supuesto coincidió con el real.
+- **S5, primera versión:** una lista escrita a mano más un test que escaneaba el código fuente.
+  Tenía límites (no veía rutas en macros ni fuera de `src/`) y se **reemplazó** en `jb-14` por una
+  tabla de rutas que protege por construcción: ver el último punto de esta lista.
+- **Desvío de B (borrado):** repetir `DELETE /me` con el token viejo da 401, no 204 idempotente;
+  la cuenta ya no existe. Una contraseña incorrecta suma al mismo contador de intentos del login.
+- **Deuda saldada (`jb-14-attempts-and-routes`):** el SQL del contador de intentos pasó a
+  `src/login_attempts.rs` con 8 pruebas propias, y el escaneo del código fuente se sustituyó por
+  `src/routes/table.rs`: la única forma de montar una ruta. Las protegidas reciben autenticación
+  al montarse (test T5: sigue protegida aunque el handler no pida `AuthUser`) y las públicas
+  exigen una justificación real. Seis mutaciones válidas, todas detectadas. Queda una limitación:
+  el compilador no impide escribir un `Router::new().route(...)` suelto en `lib.rs`; la revisión
+  del PR lo vería.
+- **CI roto en `main` descubierto y arreglado:** `cargo run --bin migration` (debía ser
+  `-p migration`), `package-lock.json` sin versionar en web y una variable de Clerk que hacía
+  fallar el chequeo de secretos.
+- **Cuota de disco:** con varios agentes compilando en paralelo, el `tmpfs` de `/tmp` se llenó y
+  un cuerpo de PR se guardó vacío (se detectó y se rehízo). Conviene limpiar los `target/` de los
+  worktrees de agentes al terminar.
+- **2026-11-04 — revisión en el navegador (Chrome, backend real, escritorio y móvil, claro y
+  oscuro).** Recorrido hecho: home → registro (envío vacío con validación por campo y foco en el
+  primero, y registro real) → dashboard («Hola, Marta», plan Gratis) → diálogo de borrado (botón
+  deshabilitado, contraseña incorrecta con mensaje y la cuenta sigue activa) → cerrar sesión →
+  `/dashboard` redirige a `/sign-in` → ingreso con contraseña mala (mensaje genérico) y buena con
+  el email en mayúsculas → borrado correcto → «Tu cuenta fue borrada» → `/dashboard` redirige a
+  `/sign-in`. Sin errores en la consola; `localStorage` y `sessionStorage` vacíos; en la base
+  quedan 0 usuarios y 1 `account_deleted`; el log del backend no contiene nombre, email ni clave.
+  - **Hallazgo 1 (corregido en `jb-15`):** la home no tenía ningún enlace al registro ni al
+    ingreso, y mostraba un texto de andamio. Ahora tiene «Crear cuenta» y «Ya tengo cuenta».
+  - **Hallazgo 2 (corregido en `jb-15`):** en modo oscuro el panel del diálogo de borrado tenía el
+    mismo color que la página y no se veían sus bordes. Ahora usa una superficie propia y borde.
+  - **Falsa alarma retirada:** creí ver «Registrate» (voseo) en una captura reducida; el árbol de
+    accesibilidad confirmó que dice «Regístrate».
+  - **Límites de esta revisión:** la herramienta del navegador bloquea leer cookies, así que las
+    banderas `HttpOnly`/`Secure` se comprobaron con `curl`, no en Chrome. El modo claro se forzó
+    desactivando por script las reglas `prefers-color-scheme: dark`; el móvil de 390 px se vio en
+    un iframe porque el redimensionado de ventana no cambió el viewport la primera vez. No se
+    probó con lector de pantalla ni en Safari o Firefox.
+

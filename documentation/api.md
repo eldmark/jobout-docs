@@ -79,6 +79,34 @@ Propiedades del token:
 
 ## Endpoints
 
+### Identidad (Fase 1)
+
+Todas bajo `/api/v1`. Errores siempre `{"error": "<código>", "message": "<texto en español>"}`.
+Cuerpo máximo 8 KB (413 si se excede). Nada de lo que entra o sale se escribe en logs.
+
+| Ruta | Auth | Cuerpo → respuesta |
+|---|---|---|
+| `POST /auth/register` | pública (es la puerta de entrada) | `{email, password, first_name, last_name}` → 201 `{access_token, refresh_token, token_type: "Bearer", expires_in: 900}` · 409 `registro_no_disponible` · 422 `datos_invalidos` |
+| `POST /auth/login` | pública | `{email, password}` → 200 mismos tokens · 401 `credenciales_invalidas` (igual para «no existe» y «clave incorrecta») · 403 `cuenta_no_disponible` (suspendido) · 429 `demasiados_intentos` (5 fallos en 15 min por email) |
+| `POST /auth/refresh` | pública (el access puede haber expirado) | `{refresh_token}` → 200 tokens nuevos; el anterior queda revocado · 401 `sesion_invalida` para token desconocido, expirado, vacío o **reutilizado**; reusar uno rotado revoca todas las sesiones del usuario · 403 suspendido |
+| `POST /auth/logout` | pública | `{refresh_token}` → 204, idempotente; solo revoca esa sesión |
+| `GET /me` | Bearer | → 200 `{id, first_name, last_name, status, email, plan: {code, name} \| null}`. Nunca devuelve `email_hash`, hash de contraseña ni `clerk_user_id` |
+| `DELETE /me` | Bearer | `{password}` → 204 · 403 `contrasena_incorrecta` (suma al contador de intentos; con bloqueo activo, 429) · 401 si la cuenta ya no existe · 422 sin contraseña |
+
+`DELETE /me` es **borrado real** (HU-05): en una transacción deja una fila en `privacy_events`
+(`account_deleted`, fecha y `subject_hash`, sin email, nombre ni id) y borra `users`; las FK en
+cascada eliminan candidato, roles, credenciales, refresh tokens y suscripciones. El token de
+acceso anterior pasa a 401 y el mismo email puede registrarse de nuevo como cuenta nueva.
+
+**Las rutas se montan solo desde la tabla `src/routes/table.rs`.** Cada entrada declara su acceso:
+`Access::Public("por qué")` exige una justificación real, y `Access::Authenticated` aplica la
+autenticación **al montar la ruta**, aunque el handler se olvide de pedir `AuthUser`. Los módulos
+de rutas no construyen `Router`s: devuelven `Vec<RouteSpec>`. `tests/route_table.rs` ejercita la
+aplicación real (protegidas dan 401 con cualquier credencial inválida, los métodos declarados son
+los reales, la lista de rutas esperadas está fija y obliga a que una ruta nueva se revise).
+El límite de cuerpo (8 KB) es global.
+
+
 _Por definir, fase por fase._ Áreas previstas:
 
 | Área | Qué cubre |

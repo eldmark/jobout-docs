@@ -15,7 +15,7 @@ Entrada más reciente arriba. No borres entradas viejas: se van quedando como hi
   indicadores financieros y la plantilla de costos) y quedaron en
   [`../documentation/identidad-visual.md`](../documentation/identidad-visual.md) y
   [`../documentation/negocio.md`](../documentation/negocio.md).
-- Se redactó [`working/fase1-identidad.md`](working/fase1-identidad.md) con sus casos de
+- Se redactó [`archived/fase1-identidad.md`](archived/fase1-identidad.md) con sus casos de
   verdad. **Decisión de MVP:** autenticación propia con JWT, sin Clerk; Clerk queda como camino
   de escala. Se agregan planes de usuario (`plans`, `user_subscriptions`).
 - Paso 1 de la fase, en `jobout-core-api` (rama `jb-05-pii-crypto`): módulo `crypto` con
@@ -55,6 +55,21 @@ Entrada más reciente arriba. No borres entradas viejas: se van quedando como hi
 - Logos vectorizados desde el PDF de identidad, en `brand-assets/` (fuera de los repos).
 - Falta: `refresh` y `logout`, `GET /me`, `DELETE /me`, páginas de ingreso y registro, y el
   recorrido en navegador. OAuth sigue aplazado.
+
+**Actualización final de la sesión**
+
+- Terminaron los pasos 4 a 7 de la Fase 1: `refresh`/`logout` (`jb-10`), `AuthUser` y `/me` con
+  borrado real (`jb-11`) y las páginas de ingreso, registro, dashboard y borrado (`jb-12`).
+- Recorrido de punta a punta contra el backend real: todo correcto (detalle en
+  `docs/archived/fase1-identidad.md`).
+- Deuda saldada en `jb-14`: contador de intentos compartido y tabla de rutas que protege por
+  construcción (sustituye al escaneo del código fuente).
+- PRs apilados abiertos en los tres repos; el orden de merge está al inicio de cada uno.
+- **Fase 1 cerrada** y movida a `archived/`. El recorrido en Chrome se hizo contra el backend real
+  (automatizado; hallazgos y límites en el archivo de la fase). Antes de salir a usuarios reales
+  conviene que una persona lo repita a mano. OAuth sigue aplazado.
+- Siguiente: fase de perfil y CV (HU-02 a HU-04), y estimar el costo real de la voz antes de
+  fijar precios.
 
 **Alerta de negocio:** el modelo financiero calcula Q0.80 por simulación «de texto», pero el
 producto es voz en tiempo real. Hay que estimar el costo real antes de fijar precios

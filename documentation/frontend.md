@@ -2,7 +2,8 @@
 
 **Next.js.** Repo: `jobout-web`.
 
-> **Estado: por construir.** Este archivo tiene las decisiones y reglas ya tomadas. El detalle
+> **Estado: Fase 1 hecha (ingreso, registro, dashboard y borrado de cuenta);
+> el resto por construir.** Este archivo tiene las decisiones y reglas ya tomadas. El detalle
 > de rutas y componentes se llena con las fases correspondientes.
 
 ## Responsabilidad
@@ -66,3 +67,21 @@ legible de un vistazo. Ver [producto.md](producto.md).
 - Manejo de estado del servidor.
 - Estrategia de internacionalización — Sofía entrevista en inglés, así que el producto va a ser
   multi-idioma antes de lo que parece.
+
+## Sesión y capa servidor (Fase 1)
+
+El navegador **nunca** ve los tokens. La sesión pasa por *route handlers* de Next que hablan con
+`core-api` y guardan los tokens en cookies `HttpOnly; Secure; SameSite=Lax` (`jo_session`,
+`jo_refresh`):
+
+| Ruta web | Qué hace |
+|---|---|
+| `POST /api/auth/register` · `/login` | llama a `core-api` y fija las cookies |
+| `POST /api/auth/logout` | llama a `/auth/logout` y borra las cookies |
+| `GET /api/auth/refresh` | renueva y vuelve a la página (las páginas del servidor no escriben cookies) |
+| `DELETE /api/account` | `DELETE /me` con la contraseña; borra las cookies |
+
+Páginas: `/sign-up`, `/sign-in`, `/dashboard` (protegida), `/adios`. El middleware deja pasar con
+`jo_session` **o** `jo_refresh` (el access dura 15 min). Los textos están en
+`lib/messages/es.ts`, nunca dentro de los componentes. El borrado de cuenta abre un diálogo
+accesible, exige la contraseña y llama a la API una sola vez.
