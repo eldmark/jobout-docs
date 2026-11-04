@@ -56,9 +56,13 @@ Reglas:
 - **HTTPS obligatorio**, sin excepción, ni siquiera en desarrollo compartido. HSTS en
   producción.
 - **JWT cortos** más refresh tokens. Un token robado tiene vida útil corta.
-- Auth con **Clerk**: no guardamos contraseñas.
-- Si algún día hubiera auth propia, hashing con **Argon2id**. Nada de bcrypt heredado, nunca
-  SHA de ningún tipo.
+- **MVP: auth propia.** Guardamos credenciales, así que: hash **Argon2id** (m=19 MiB, t=2, p=1),
+  contraseña de 10 a 128 caracteres, mensajes que no distinguen «no existe» de «contraseña
+  incorrecta», trabajo de Argon2 aunque el email no exista, y bloqueo tras 5 fallos en 15
+  minutos por email (`login_attempts`).
+- Nada de bcrypt heredado ni SHA para **contraseñas**. SHA-256 sí se usa para el refresh token
+  guardado: es un valor aleatorio de 256 bits, no una contraseña elegida por una persona.
+- Clerk queda como camino de escala (MFA, Google, recuperación de contraseña).
 
 ## Autorización
 

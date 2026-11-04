@@ -205,7 +205,7 @@ todos porque el siguiente agente actúa sobre ella sin dudar.
 | [arquitectura.md](documentation/arquitectura.md) | Los cuatro repos, sus fronteras, el flujo de entrevista en tiempo real, evolución del avatar |
 | [db.md](documentation/db.md) | Esquema, migraciones SeaORM, qué columnas se cifran |
 | [api.md](documentation/api.md) | Contratos entre servicios, token efímero de entrevista, qué nunca cruza la frontera |
-| [frontend.md](documentation/frontend.md) | Next.js, rutas, estado, Clerk, capa de audio |
+| [frontend.md](documentation/frontend.md) | Next.js, rutas, estado, sesión, capa de audio |
 | [security.md](documentation/security.md) | Modelo de amenazas, cifrado de PII, secretos, política de privacidad |
 | [test.md](documentation/test.md) | Cómo correr y escribir pruebas en cada repo |
 | [identidad-visual.md](documentation/identidad-visual.md) | Paleta, tipografías, logo y tono de voz |

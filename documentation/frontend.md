@@ -15,7 +15,9 @@ producción, no se manda a ninguna herramienta de analítica.
 
 ## Autenticación
 
-Clerk. El SDK de Clerk maneja el login, y el JWT resultante va en cada llamada a `core-api`.
+**MVP: sin Clerk.** El frontend llama a `POST /api/v1/auth/login` y `/register` de `core-api`. Los
+tokens van en cookies `HttpOnly`, `Secure`, `SameSite=Lax` (nunca en `localStorage`) y el JWT de
+acceso viaja como `Authorization: Bearer` en cada llamada. Clerk queda como camino de escala.
 
 El token efímero de entrevista es distinto y de vida corta: se pide al abrir una sesión y se
 usa solo para el WebSocket. No se guarda.

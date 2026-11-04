@@ -8,7 +8,7 @@
 
 | Superficie | Servicio | Consumidor | Auth |
 |---|---|---|---|
-| `REST /api/v1` | `jobout-core-api` | `jobout-web` | JWT de Clerk |
+| `REST /api/v1` | `jobout-core-api` | `jobout-web` | JWT propio de `core-api` (MVP) |
 | `WS /interview` | `jobout-interview` | `jobout-web` | **Token efímero de sesión** |
 | Interna | `core-api` ↔ `interview` | Entre servicios | mTLS o secreto compartido |
 
@@ -22,7 +22,7 @@ Esta es la regla más importante del sistema.
 - Nombre real
 - El archivo del CV
 - Credenciales de base de datos o de S3
-- El JWT de Clerk del usuario
+- El JWT de acceso del usuario
 - Cualquier id permanente de usuario
 
 **Sí cruza:**
@@ -39,7 +39,7 @@ resolverlo del lado de `core-api`.
 ## Token efímero de entrevista
 
 ```
-1. jobout-web            →  POST /api/v1/interviews          (JWT de Clerk)
+1. jobout-web            →  POST /api/v1/interviews          (JWT de acceso)
 2. jobout-core-api       →  crea la sesión, arma el contexto
                             emite un token efímero de sesión
 3. jobout-web            ←  { session_token, ws_url, recruiter }

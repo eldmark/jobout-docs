@@ -79,7 +79,8 @@ Consecuencias que el equipo tiene que saber:
 
 Tablas nuevas (9 + 2 de planes): `users`, `user_credentials`, `refresh_tokens`, `roles`,
 `permissions`, `role_permissions`, `user_roles`, `applicants`, `privacy_events`, `plans`,
-`user_subscriptions`. Enums de PostgreSQL: `user_status`, `privacy_event_kind`,
+`user_subscriptions`, `login_attempts` (esta última se añadió en el paso 4: el límite de intentos
+necesita dónde contar). Enums de PostgreSQL: `user_status`, `privacy_event_kind`,
 `subscription_status`, `subscription_source`.
 
 Migraciones (cada una con `up` y `down`):
@@ -112,7 +113,7 @@ Cada paso es una rama `jb-##-slug` y un PR.
 - [x] 1. Módulo `crypto` (cifrado + HMAC + carga de claves). Solo pruebas unitarias. *(2026-11-04, rama `jb-05-pii-crypto` en core-api)*
 - [x] 2. Migraciones + `db.md`. Pruebas contra PostgreSQL real. *(2026-11-04, rama `jb-06-identity-migrations`; las entidades SeaORM quedan para el primer paso que las consuma)*
 - [ ] 3. Contraseñas (Argon2id) y JWT: emisión y validación. Actualiza los docs de Clerk.
-- [ ] 4. `register`, `login`, `refresh`, `logout`.
+- [ ] 4. `register`, `login`, `refresh`, `logout`. **Hechos `register` y `login`** (2026-11-04, rama `jb-09-register-login`); faltan `refresh` y `logout` (R12–R15).
 - [ ] 5. `GET /me`, `DELETE /me` y `privacy_events`.
 - [ ] 6. Frontend: tokens de marca, ingreso/registro, protección de `/dashboard`.
 - [ ] 7. Frontend: borrado de cuenta.
@@ -165,6 +166,7 @@ de 32 bytes en base64.
 | E13 | Sí puede tener una activa y varias `expired`/`cancelled` | integración |
 | E14 | `plans.code` es único | integración |
 | E15 | Se siembran los roles `applicant` y `admin` | integración |
+| E16 | Existe `login_attempts` (PK `email_hash`, sin FK a `users`) y `down` la elimina | integración |
 
 ### Contraseñas y JWT (paso 3)
 
@@ -306,3 +308,16 @@ de 32 bytes en base64.
     business sin tope.
   - Se agregó `migration` como dependencia de `core-api` (para correr migraciones desde la
     app y las pruebas) y `TEST_DATABASE_URL` al job de pruebas del CI.
+- **2026-11-04 — paso 4 (parcial).** `register` y `login` con 18 pruebas en `tests/auth.rs`
+  (R1–R8, R10, R11, R16, R17, R18, S3, S4, S6). Se comprobó con 5 mutaciones que fallan: log del
+  email, sin bloqueo, email inexistente distinguible, refresh en claro y duplicado mal mapeado.
+  La primera versión de la mutación «distinguible» no cambiaba nada (era equivalente) y
+  sobrevivió; se rehízo bien. Se probó también el binario real contra una base descartable.
+- **`login_attempts` no estaba en el plan.** El límite de intentos (R10/R11) necesita estado;
+  se añadió la migración `m20261104_000004_create_login_attempts` y se documentó en `db.md`.
+- **S5 (recorrer todas las rutas y exigir `AuthUser`) sigue pendiente:** axum no permite listar
+  las rutas del router. Se resolverá con un registro explícito de rutas cuando exista `AuthUser`.
+- **`main.rs` ya carga las claves y el secreto JWT** y no arranca sin ellos. El `.env.example`
+  trae valores falsos de desarrollo; **un `.env` local viejo con `reemplazar` hará fallar el
+  arranque** hasta regenerarlo desde el ejemplo.
+- **Docs de Clerk actualizados** (arquitectura, seguridad, API, frontend, desarrollo).
