@@ -65,8 +65,9 @@ Entrada más reciente arriba. No borres entradas viejas: se van quedando como hi
 - Deuda saldada en `jb-14`: contador de intentos compartido y tabla de rutas que protege por
   construcción (sustituye al escaneo del código fuente).
 - PRs apilados abiertos en los tres repos; el orden de merge está al inicio de cada uno.
-- **Falta para cerrar la fase:** que una persona recorra el flujo en un navegador real, mergear la
-  pila, y mover `fase1-identidad.md` a `archived/`. OAuth sigue aplazado.
+- **Fase 1 cerrada** y movida a `archived/`. El recorrido en Chrome se hizo contra el backend real
+  (automatizado; hallazgos y límites en el archivo de la fase). Antes de salir a usuarios reales
+  conviene que una persona lo repita a mano. OAuth sigue aplazado.
 - Siguiente: fase de perfil y CV (HU-02 a HU-04), y estimar el costo real de la voz antes de
   fijar precios.
 
