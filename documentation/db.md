@@ -77,18 +77,21 @@ repo, es un bug crítico.
 ```
 IDENTIDAD              PERFIL CANDIDATO           EMPRESA
 users                  applicants                 companies
- ├ user_roles           ├ personal_data            ├ company_recruiters
- ├ admins               ├ professional_data        ├ memberships
- ├ applicants           ├ job_preferences          └ company_favorite_applicants
- └ company_recruiters   ├ applicant_languages
-roles                   ├ applicant_skills         OFERTAS
-permissions             ├ cvs                      job_offers
-role_permissions        │  ├ cv_extractions         ├ job_offer_skills
-                        │  └ cv_suggestions        ├ job_offer_languages
-                        └ applicant_level_progress ├ job_offer_driver_licenses
-                                                   ├ job_applications
-ENTREVISTA                                         │   └ job_application_events
-ai_recruiters ── rubrics ── rubric_versions        └ job_matches
+ ├ user_credentials     ├ personal_data            ├ company_recruiters
+ ├ refresh_tokens       ├ professional_data        ├ memberships
+ ├ user_roles           ├ job_preferences          └ company_favorite_applicants
+ ├ user_subscriptions   ├ applicant_languages
+ ├ admins               ├ applicant_skills         OFERTAS
+ ├ applicants           ├ cvs                      job_offers
+ └ company_recruiters   │  ├ cv_extractions         ├ job_offer_skills
+roles                   │  └ cv_suggestions        ├ job_offer_languages
+permissions             └ applicant_level_progress ├ job_offer_driver_licenses
+role_permissions                                   ├ job_applications
+plans                                              │   └ job_application_events
+                                                   └ job_matches
+
+ENTREVISTA
+ai_recruiters ── rubrics ── rubric_versions
 interview_levels
 interview_sessions
  ├ interview_turns          TRANSVERSAL
@@ -112,7 +115,7 @@ CATÁLOGOS  countries → states → cities → zones
 | Columna | Tipo | Notas |
 |---|---|---|
 | `id` | uuid v7 | PK |
-| `clerk_user_id` | varchar | unique. **La identidad la maneja Clerk** |
+| `clerk_user_id` | varchar | **null**, unique. En el MVP no hay Clerk (auth propia); queda para el camino de escala |
 | `email` | bytea | **cifrado** |
 | `email_hash` | bytea | unique. HMAC determinístico, para buscar |
 | `first_name` | varchar | not null |
@@ -120,22 +123,42 @@ CATÁLOGOS  countries → states → cities → zones
 | `last_name` | varchar | not null |
 | `last_name2` | varchar | null |
 | `married_last_name` | varchar | null |
-| `status` | enum | `active` · `suspended` · `pending_verification` |
+| `status` | enum `user_status` | `active` · `suspended` · `pending_verification` (default) |
 | `deleted_at` | timestamptz | null. Ver nota de borrado real abajo |
 
-**No hay columna `password`.** Clerk maneja credenciales; no guardamos ninguna. Si algún día
-hubiera auth propia, sería Argon2id y en una tabla aparte, nunca acá.
+**No hay columna `password` en `users`.** Las credenciales viven en `user_credentials`, tabla
+aparte, para que un `SELECT * FROM users` nunca arrastre un hash.
 
 `deleted_at` acá es solo marca transitoria mientras corre el borrado. HU-05 exige borrado real:
-el job de eliminación borra la fila y sus dependientes, y deja constancia en `privacy_events`.
+se borra la fila y sus dependientes (las FK hijas son `ON DELETE CASCADE`) y se deja constancia
+en `privacy_events`.
+
+### `user_credentials`
+
+| Columna | Tipo | Notas |
+|---|---|---|
+| `user_id` | uuid | PK y FK → `users`, `ON DELETE CASCADE` |
+| `password_hash` | varchar | **Argon2id** (formato PHC, con sal propia). Nunca la contraseña |
+
+### `refresh_tokens`
+
+| Columna | Tipo | Notas |
+|---|---|---|
+| `id` | uuid v7 | PK |
+| `user_id` | uuid | FK → `users`, `ON DELETE CASCADE`. Índice |
+| `token_hash` | bytea | unique. **Solo el hash** del token; el valor entregado no se guarda |
+| `expires_at` | timestamptz | not null |
+| `revoked_at` | timestamptz | null. Lleno = revocado (logout o rotación) |
 
 ### `roles` · `permissions` · `role_permissions` · `user_roles`
 
-Sin cambios respecto del diagrama original, salvo PK uuid y `deleted_at`.
+`roles` y `permissions`: `id` (uuid v7) · `code` (unique) · `name` · `description` ·
+`deleted_at`. `role_permissions` (`role_id`, `permission_id`) y `user_roles` (`user_id`,
+`role_id`) tienen **PK compuesta**, FK con `ON DELETE CASCADE` y `assigned_date timestamptz`
+(el `date (string)` original pasa a `timestamptz`).
 
-Los permisos se agrupan **por rol**, no por área ni feature — es la respuesta que ya quedó
-anotada en el diagrama. `user_roles` lleva `assigned_date`; `role_permissions` lleva
-`assigned_date` (el `date (string)` original pasa a `timestamptz`).
+La migración siembra los roles `applicant` (Candidato) y `admin` (Administrador). Los permisos
+se agrupan **por rol**, no por área ni feature.
 
 Los permisos se comprueban **por su literal**, nunca por nombre de ruta. Ver
 [security.md](security.md).
@@ -149,10 +172,40 @@ Los permisos se comprueban **por su literal**, nunca por nombre de ruta. Ver
 | Columna | Tipo | Notas |
 |---|---|---|
 | `id` | uuid v7 | PK |
-| `user_id` | uuid | FK unique → `users` |
+| `user_id` | uuid | FK unique → `users`, `ON DELETE CASCADE` |
 
 **Se quitaron `personal_data_id` y `professional_data_id`.** Eran FK circulares: las tablas
 hijas ya apuntan acá con `applicant_id`. Una relación 1:1 se declara en un solo lado.
+
+### `plans`
+
+| Columna | Tipo | Notas |
+|---|---|---|
+| `id` | uuid v7 | PK |
+| `code` | varchar | unique: `free` · `student` · `standard` · `business` |
+| `name` | varchar | |
+| `monthly_price_gtq` | numeric(10,2) | not null |
+| `monthly_simulations` | integer | null = sin tope |
+
+Sembrados por la migración (ver [negocio.md](negocio.md)): `free` Q0 (1 simulación),
+`student` Q60 (10), `standard` Q75 (12), `business` Q487.50 (sin tope).
+
+### `user_subscriptions`
+
+| Columna | Tipo | Notas |
+|---|---|---|
+| `id` | uuid v7 | PK |
+| `user_id` | uuid | FK → `users`, `ON DELETE CASCADE`. Índice |
+| `plan_id` | uuid | FK → `plans` |
+| `status` | enum `subscription_status` | `active` · `expired` · `cancelled` |
+| `source` | enum `subscription_source` | `free` · `paid` · `student_trial` · `mentor` |
+| `started_at` | timestamptz | default `now()` |
+| `expires_at` | timestamptz | null |
+
+**Un solo registro `active` por usuario**, garantizado por un índice único **parcial**
+(`UNIQUE (user_id) WHERE status = 'active'`). El historial (`expired`, `cancelled`) no tiene
+tope. Es el plan de las personas: `memberships` **sigue siendo solo de empresas** (plan
+Empresarial) y no se toca.
 
 ### `company_recruiters`
 
@@ -250,6 +303,8 @@ que el candidato confirma se copia a las tablas del perfil (HU-03, HU-04).
 `country_id` FK · `employment_sector_id` FK
 
 ### `memberships`
+
+**Solo de empresas** (plan Empresarial). Los planes de personas viven en `user_subscriptions`.
 
 | Columna | Notas |
 |---|---|
@@ -462,10 +517,16 @@ filtración. Por eso la IP va hasheada.
 
 ### `privacy_events`
 
-`user_id` · `kind` enum (`export_requested` · `export_delivered` · `deletion_requested` ·
-`deletion_completed`) · `requested_at` · `completed_at` · `notes`.
+| Columna | Tipo | Notas |
+|---|---|---|
+| `id` | uuid v7 | PK |
+| `subject_hash` | bytea | HMAC del email (el mismo de `users.email_hash`). Índice |
+| `kind` | enum `privacy_event_kind` | hoy solo `account_deleted`; se amplía con migraciones |
+| `notes` | varchar | null |
 
-Sobrevive al borrado de la cuenta: es la constancia de que el borrado ocurrió (HU-05, HU-41).
+**Sin FK a `users`, a propósito:** si la tuviera, borrar al usuario borraría su propia
+constancia de borrado. Por eso guarda `subject_hash` y nunca el id ni el email. Sobrevive al
+borrado de la cuenta: es la constancia de que ocurrió (HU-05, HU-41).
 
 ### `usage_ledger`
 
