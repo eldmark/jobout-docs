@@ -7,6 +7,39 @@ Entrada más reciente arriba. No borres entradas viejas: se van quedando como hi
 
 ---
 
+## 2026-11-04 — Fase 1 mergeada y Fase 2 redactada
+
+**Qué se hizo**
+
+- La pila de la Fase 1 (13 PRs en los tres repos) quedó mergeada en `main` y la fase está en
+  `archived/fase1-identidad.md`.
+- Deuda de cierre: [`jb-16`](https://github.com/eldmark/jobout-core-api/pull/8) hace que el CI pruebe
+  todos los crates del workspace (la prueba de UUID v7 nunca corría) y `jb-17` arregla `make test`,
+  `make migrate` y `test.md`. **Siguen abiertos hasta que alguien los revise.**
+- Se redactó [`working/fase2-perfil-cv.md`](working/fase2-perfil-cv.md) con unos 110 casos de
+  verdad. **No hay código de la Fase 2.**
+
+**Lo que la Fase 2 descubrió que el diseño no decía**
+
+HU-03 pide extraer «experiencia» pero no existe dónde guardarla; los catálogos están diseñados y
+no migrados; borrar la cuenta ya no cabe en una transacción porque los archivos viven fuera de la
+base; y un `jsonb` de extracción puede filtrar PII sin cifrar. Detalle y propuestas en el archivo
+de la fase.
+
+**Qué sigue**
+
+1. Que el equipo revise los casos de verdad y resuelva las 7 decisiones abiertas (las más
+   importantes: dónde se guardan los archivos, extractor determinista o LLM, y si se cifran las
+   experiencias).
+2. Paso 1 de la Fase 2: migración de catálogos con sus semillas.
+3. Antes de salir a usuarios reales: implementación S3, y que una persona repita el recorrido de
+   la Fase 1 en un navegador.
+
+**Pendiente heredado:** ramas `jb-05-pii-crypto` y `jb-07-password-jwt` sobrantes en
+`jobout-core-api`; OAuth aplazado; costo real de la voz frente al supuesto de texto.
+
+---
+
 ## 2026-11-04 — Documentación de marca y negocio, Fase 1 y módulo de cifrado
 
 **Qué se hizo**

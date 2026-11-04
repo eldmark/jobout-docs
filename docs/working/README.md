@@ -11,4 +11,4 @@ Cuando una fase cumple todos sus criterios de cierre, se mueve a
 
 ## Activas
 
-_Ninguna todavía._
+- [`fase2-perfil-cv.md`](fase2-perfil-cv.md) — perfil y CV (HU-02, HU-03, HU-04). Casos de verdad pendientes de revisión del equipo; sin código todavía.
