@@ -90,8 +90,8 @@ role_permissions                                   ├ job_applications
 plans                                              │   └ job_application_events
                                                    └ job_matches
 
-ENTREVISTA                                         │   └ job_application_events
-ai_recruiters ── rubrics ── rubric_versions        └ job_matches
+ENTREVISTA
+ai_recruiters ── rubrics ── rubric_versions
 interview_levels
 interview_sessions
  ├ interview_turns          TRANSVERSAL
