@@ -112,12 +112,12 @@ Cada paso es una rama `jb-##-slug` y un PR.
 - [ ] 0. **Este documento**: el equipo revisa y acuerda los casos de verdad.
 - [x] 1. Módulo `crypto` (cifrado + HMAC + carga de claves). Solo pruebas unitarias. *(2026-11-04, rama `jb-05-pii-crypto` en core-api)*
 - [x] 2. Migraciones + `db.md`. Pruebas contra PostgreSQL real. *(2026-11-04, rama `jb-06-identity-migrations`; las entidades SeaORM quedan para el primer paso que las consuma)*
-- [ ] 3. Contraseñas (Argon2id) y JWT: emisión y validación. Actualiza los docs de Clerk.
-- [ ] 4. `register`, `login`, `refresh`, `logout`. **Hechos `register` y `login`** (2026-11-04, rama `jb-09-register-login`); faltan `refresh` y `logout` (R12–R15).
-- [ ] 5. `GET /me`, `DELETE /me` y `privacy_events`.
-- [ ] 6. Frontend: tokens de marca, ingreso/registro, protección de `/dashboard`.
-- [ ] 7. Frontend: borrado de cuenta.
-- [ ] 8. Recorrido completo en navegador y cierre.
+- [x] 3. Contraseñas (Argon2id) y JWT: emisión y validación. Docs de Clerk actualizados. *(rama `jb-07-password-jwt`, integrada en `jb-09`)*
+- [x] 4. `register`, `login`, `refresh`, `logout`. *(ramas `jb-09-register-login` y `jb-10-refresh-logout`)*
+- [x] 5. `GET /me`, `DELETE /me` y `privacy_events`. *(rama `jb-11-me-delete`)*
+- [x] 6. Frontend: tokens de marca, ingreso/registro, protección de `/dashboard`. *(ramas `jb-08-brand-session` y `jb-12-auth-pages`)*
+- [x] 7. Frontend: borrado de cuenta. *(rama `jb-12-auth-pages`)*
+- [ ] 8. Recorrido completo en navegador y cierre. *Recorrido por la capa web contra el backend real hecho con `curl` (ver «Desvíos»); falta la pasada en un navegador real por una persona y el cierre.*
 - [ ] 9. ⏸ **APLAZADO — OAuth / «Entrar con Google»** (parte de HU-01). Fuera de esta fase por decisión del equipo; abrir fase propia cuando se retome.
 
 ## Casos de verdad
@@ -321,3 +321,24 @@ de 32 bytes en base64.
   trae valores falsos de desarrollo; **un `.env` local viejo con `reemplazar` hará fallar el
   arranque** hasta regenerarlo desde el ejemplo.
 - **Docs de Clerk actualizados** (arquitectura, seguridad, API, frontend, desarrollo).
+- **2026-11-04 — pasos 4 (resto), 5, 6 y 7.** `refresh`/`logout` con 14 pruebas y 7 mutaciones
+  válidas; `AuthUser`, `GET/DELETE /me` con 17 pruebas y 11 mutaciones válidas; frontend con 128
+  pruebas. Se integraron las tres ramas de agentes y toda la suite pasa (backend y web).
+- **Recorrido de punta a punta con el backend real** (no simulado): registro → dashboard con el
+  nombre y el plan Gratis → logout → login con el email en mayúsculas → borrado con contraseña
+  incorrecta (403) y correcta (204) → sesión invalidada (307 a `/sign-in`) → login rechazado →
+  re-registro del mismo email como cuenta nueva. La base queda con 1 usuario y 1 evento
+  `account_deleted` sin datos personales, y el log del backend no contiene email ni contraseñas.
+  El contrato que el agente web había supuesto coincidió con el real.
+- **S5 resuelto con un registro explícito de rutas** (`src/routes/registry.rs`) y un test que
+  escanea el código fuente. Limitación: no ve rutas en macros ni fuera de `src/`.
+- **Desvío de B (borrado):** repetir `DELETE /me` con el token viejo da 401, no 204 idempotente;
+  la cuenta ya no existe. Una contraseña incorrecta suma al mismo contador de intentos del login.
+- **Deuda anotada:** el SQL del contador de intentos está duplicado entre `auth.rs` y `me.rs`
+  (~20 líneas); conviene extraerlo a un módulo común.
+- **CI roto en `main` descubierto y arreglado:** `cargo run --bin migration` (debía ser
+  `-p migration`), `package-lock.json` sin versionar en web y una variable de Clerk que hacía
+  fallar el chequeo de secretos.
+- **Cuota de disco:** con varios agentes compilando en paralelo, el `tmpfs` de `/tmp` se llenó y
+  un cuerpo de PR se guardó vacío (se detectó y se rehízo). Conviene limpiar los `target/` de los
+  worktrees de agentes al terminar.

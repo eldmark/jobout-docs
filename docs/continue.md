@@ -56,6 +56,18 @@ Entrada más reciente arriba. No borres entradas viejas: se van quedando como hi
 - Falta: `refresh` y `logout`, `GET /me`, `DELETE /me`, páginas de ingreso y registro, y el
   recorrido en navegador. OAuth sigue aplazado.
 
+**Actualización final de la sesión**
+
+- Terminaron los pasos 4 a 7 de la Fase 1: `refresh`/`logout` (`jb-10`), `AuthUser` y `/me` con
+  borrado real (`jb-11`) y las páginas de ingreso, registro, dashboard y borrado (`jb-12`).
+- Recorrido de punta a punta contra el backend real: todo correcto (detalle en
+  `docs/working/fase1-identidad.md`).
+- PRs apilados abiertos en los tres repos; el orden de merge está al inicio de cada uno.
+- **Falta para cerrar la fase:** que una persona recorra el flujo en un navegador real, mergear la
+  pila, y mover `fase1-identidad.md` a `archived/`. OAuth sigue aplazado.
+- Siguiente: fase de perfil y CV (HU-02 a HU-04), y estimar el costo real de la voz antes de
+  fijar precios.
+
 **Alerta de negocio:** el modelo financiero calcula Q0.80 por simulación «de texto», pero el
 producto es voz en tiempo real. Hay que estimar el costo real antes de fijar precios
 (ver [`../documentation/negocio.md`](../documentation/negocio.md)).
