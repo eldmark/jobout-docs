@@ -104,7 +104,38 @@ autenticación **al montar la ruta**, aunque el handler se olvide de pedir `Auth
 de rutas no construyen `Router`s: devuelven `Vec<RouteSpec>`. `tests/route_table.rs` ejercita la
 aplicación real (protegidas dan 401 con cualquier credencial inválida, los métodos declarados son
 los reales, la lista de rutas esperadas está fija y obliga a que una ruta nueva se revise).
-El límite de cuerpo (8 KB) es global.
+El límite de cuerpo (8 KB) es global, **salvo** que una ruta declare el suyo (`RouteSpec.body_limit`;
+hoy solo `POST /cvs`, con 6 MiB). Un test impide declarar más de 6 MiB.
+
+### Perfil y CV (Fase 2)
+
+Bajo `/api/v1`, todas `Authenticated`. Los formatos exactos están en los tests de `tests/cvs.rs` y
+`tests/profile.rs`.
+
+| Ruta | Cuerpo → respuesta |
+|---|---|
+| `GET /catalogs/{nombre}` (`skills`, `languages`, `academic-levels`, `professions`, `job-hierarchies`) | → 200 `[{id, code, name}]` solo activos; nombre desconocido → 404 |
+| `POST /cvs` | `multipart/form-data`, un único campo `file` → 201 `{id, version, is_primary, original_filename, size_bytes, created_at, extraction: {status: ready\|failed, reason, proposal}}` · 409 `limite_de_cvs` (5 por persona) · 413 `archivo_demasiado_grande` (5 MB) · 415 `tipo_no_permitido` · 422 |
+| `GET /cvs` | → 200 lista de **mis** CVs (sin `storage_key`) |
+| `GET /cvs/{id}/file` | → 200 los bytes, con `Content-Disposition: attachment`, `X-Content-Type-Options: nosniff` y `Cache-Control: private, no-store` |
+| `PUT /cvs/{id}/primary` · `DELETE /cvs/{id}` | → 204 |
+| `GET /cvs/{id}/extraction` | → 200 la propuesta (+ `reviewed`) |
+| `POST /cvs/{id}/extraction/confirm` | cuerpo = perfil editado → 204; guarda **lo que la persona envió**, no lo propuesto |
+| `GET /profile` · `PUT /profile` | perfil completo (en una cuenta nueva: vacío, nunca 404) · reemplazo **completo e idempotente** → 204 |
+
+- **Un CV ajeno, inexistente o con id mal formado da siempre 404**, nunca 403.
+- El tipo del archivo se decide **por su contenido** (`%PDF-`, o un ZIP con `word/document.xml`),
+  nunca por la extensión ni por el `Content-Type` que diga el cliente.
+- La propuesta (`extraction.proposal`) tiene `description`, `skills[]`, `languages[]` y
+  `experiences[]`, cada elemento con su `confidence` (`alta` · `media` · `baja`). **Nunca** incluye
+  teléfono, email ni dirección.
+- Topes de confirmación y perfil: 60 skills, 10 idiomas, 30 experiencias, descripciones de hasta
+  2000 caracteres. Los 422 llevan un texto fijo por causa y nunca repiten lo que envió la persona.
+
+`DELETE /me` ahora también **borra los archivos** de los CVs: en la misma transacción que borra la
+cuenta se encolan sus claves (cifradas) en `pending_storage_deletions`; después del commit se
+intenta borrar cada archivo y, si el almacén falla, la cuenta igual queda borrada y una tarea
+(`storage_cleanup`, cada 60 s) reintenta hasta 10 veces.
 
 
 _Por definir, fase por fase._ Áreas previstas:

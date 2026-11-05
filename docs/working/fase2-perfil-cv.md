@@ -1,6 +1,6 @@
 # Fase 2 — Perfil y CV
 
-**Estado:** en curso (casos de verdad pendientes de revisión del equipo; **no hay código todavía**)
+**Estado:** en curso (pasos 1 a 11 implementados; falta el cierre con CVs reales y una persona en el navegador)
 **Repos que toca:** jobout-core-api, jobout-web, jobout (documentación)
 **Abierta:** 2026-11-04
 
@@ -111,19 +111,19 @@ Cada paso es una rama `jb-##-slug` y un PR. Los marcados ⇉ no dependen entre s
 trabajar en paralelo.
 
 - [ ] 0. **Este documento**: el equipo revisa los casos de verdad y resuelve las decisiones abiertas.
-- [ ] 1. Migración de catálogos y semillas (⇉ con 3 y 4).
-- [ ] 2. Migración de perfil (`professional_data`, idiomas, skills, experiencias, `personal_data`).
-- [ ] 3. `BlobStore`: interfaz, almacén en disco privado y almacén en memoria para pruebas (⇉).
-- [ ] 4. Extracción: texto de PDF y DOCX con límites, y `CvExtractor` determinista (⇉, sin base de
+- [x] 1. Migración de catálogos y semillas (⇉ con 3 y 4). *(rama `jb-19-profile-schema`)*
+- [x] 2. Migración de perfil (`professional_data`, idiomas, skills, experiencias, `personal_data`). *(rama `jb-19-profile-schema`)*
+- [x] 3. `BlobStore`: interfaz, almacén en disco privado y almacén en memoria para pruebas (⇉). *(rama `jb-20-blob-store`)*
+- [x] 4. Extracción: texto de PDF y DOCX con límites, y `CvExtractor` determinista (⇉, sin base de *(rama `jb-21-cv-extractor`)*
       datos).
-- [ ] 5. Migración de `cvs`, `cv_extractions` y `pending_storage_deletions`.
-- [ ] 6. `POST /cvs`: subida, validación y extracción.
-- [ ] 7. Lectura, descarga, primario y borrado de CVs.
-- [ ] 8. Confirmación de lo extraído y `GET/PUT /profile`, catálogos.
-- [ ] 9. Borrado de cuenta ampliado y reintento de `pending_storage_deletions`.
-- [ ] 10. Frontend: subir CV y revisar lo propuesto (⇉ con 11).
-- [ ] 11. Frontend: perfil y borrado de CV.
-- [ ] 12. Recorrido en navegador y cierre.
+- [x] 5. Migración de `cvs`, `cv_extractions` y `pending_storage_deletions`. *(rama `jb-19-profile-schema`)*
+- [x] 6. `POST /cvs`: subida, validación y extracción. *(rama `jb-25-cv-routes`)*
+- [x] 7. Lectura, descarga, primario y borrado de CVs. *(rama `jb-25-cv-routes`)*
+- [x] 8. Confirmación de lo extraído y `GET/PUT /profile`, catálogos. *(rama `jb-26-profile-routes`)*
+- [x] 9. Borrado de cuenta ampliado y reintento de `pending_storage_deletions`. *(rama `jb-27-account-deletion-files`)*
+- [x] 10. Frontend: subir CV y revisar lo propuesto (⇉ con 11). *(rama `jb-22-cv-pages`)*
+- [x] 11. Frontend: perfil y borrado de CV. *(rama `jb-22-cv-pages`)*
+- [ ] 12. Recorrido en navegador y cierre. *Recorrido hecho en Chrome contra el backend real, **pero por un agente y con un CV sintético**; faltan la pasada de una persona y la medición con CVs reales (ver «Desvíos»).*
 
 ## Casos de verdad
 
@@ -376,4 +376,47 @@ trabajar en paralelo.
 
 ## Desvíos y hallazgos
 
-_Vacío hasta que se empiece a implementar._
+- **2026-11-05 — arranque sin revisión del equipo.** Se pidió empezar sin haber resuelto las siete
+  decisiones abiertas, así que se adoptaron **las recomendaciones del plan**: almacén en disco detrás
+  de una interfaz, extractor determinista, extracción síncrona, tope de 5 CVs, `description` de las
+  experiencias cifrada (`company` y `title` en claro) y catálogo de skills cerrado. **El equipo puede
+  revertirlas**; las dos más caras de cambiar son el cifrado de `description` y el extractor.
+- **Qué quedó hecho** (cinco ramas apiladas más cuatro independientes, ver los PRs): catálogos con 114
+  skills; esquema de perfil y CVs; `BlobStore`; texto de PDF/DOCX y extractor; rutas de CV, perfil y
+  confirmación; borrado de cuenta con archivos; y las pantallas. Suite del backend integrado: 325
+  pruebas; frontend: 230.
+- **Hallazgo de seguridad (corregido en `jb-29`): los valores de las consultas salían en claro en los
+  logs con `RUST_LOG=trace`.** `sea-orm` abre un *span* `trace` por consulta con la sentencia y sus
+  valores como campos, y cualquier evento dentro los imprime como contexto: nombres, descripción del
+  perfil, empresa, cargo y nombre del archivo. Con el filtro por defecto no pasaba, pero un
+  `RUST_LOG=trace` «solo un momento» en producción lo habría llevado a los logs. Desactivar
+  `sqlx_logging` **no** lo evita (se probó). Se fijó por código que `sea_orm` y `sqlx` no pasen de
+  `warn`. Lo vio primero el agente de perfil; lo confirmó una prueba que empezó a fallar al integrar.
+- **Tope de cuerpo por ruta.** El tope global de 8 KB impedía subir CVs. Se añadió
+  `RouteSpec.body_limit` (sustituye al global solo en esa ruta; un test impide declarar más de 6 MB).
+  Consecuencia: el tope global corta con 413 un `PUT /profile` con muchas experiencias de 2000
+  caracteres. Si hace falta, se declara un tope propio.
+- **Recorrido en Chrome contra el backend real** (el frontend se había probado solo con simulaciones):
+  registro → «Completa tu perfil» → subir un DOCX → revisar lo propuesto → editar un nivel →
+  confirmar → «Tu perfil» → borrar el CV (diálogo) → subir otro → borrar la **cuenta**. Se comprobó
+  además por `curl` y `psql`: la descarga es idéntica byte a byte; el archivo en disco tiene nombre
+  UUID aleatorio y permisos `0600` (directorio `0700`); `storage_key` y `description` van cifradas; la
+  propuesta guardada no contiene correo ni teléfono; un ejecutable renombrado `.pdf` da 415 y no deja
+  archivo; con la contraseña mala el borrado de cuenta da 403 y no toca el archivo; con la buena el
+  almacén queda en 0 archivos, la base sin datos, la bandeja vacía y **una** constancia. El log real
+  del backend no contiene ningún dato personal.
+- **Límites de ese recorrido, para no sobrevalorarlo:** lo hizo un agente, no una persona; el CV lo
+  escribió el mismo equipo con un formato limpio, así que **demuestra que el flujo funciona, no que el
+  extractor sea bueno con CVs reales** (acertó 10 de 10 skills, 2 experiencias y 2 idiomas, pero con
+  texto hecho a su medida); el archivo se inyectó con un `File` creado en la página porque la
+  herramienta solo sube archivos que el usuario comparte; la herramienta bloquea leer cookies, así que
+  `HttpOnly` no se comprobó en el navegador; solo se vio en oscuro y a ancho de escritorio.
+- **Observaciones visuales sin arreglar:** la etiqueta «Primario» se estira como una barra a todo el
+  ancho de la tarjeta, y el selector de archivo conserva el texto del navegador («Choose File»).
+- **Sin probar:** U14 a nivel de ruta (tiempo agotado: no hay forma de inyectarlo sin tocar
+  `AppState`); el bucle de 60 s de `storage_cleanup` en `main` (la lógica sí está probada llamando a la
+  función); PDFs reales y CVs con columnas o tablas, que el extractor lee desordenados.
+- **Incidentes del entorno que afectaron el trabajo:** el cupo de `/tmp` se llenó con el directorio de
+  compilación compartido y bloqueó a tres agentes (se movió a `/home`); `/tmp` se limpió al cambiar de
+  día y se perdieron worktrees y scripts (las ramas estaban subidas, no se perdió código); PostgreSQL
+  quedó detenido tras un reinicio; y `gh` cambió de cuenta a la de trabajo mientras se trabajaba.

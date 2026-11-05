@@ -92,6 +92,7 @@ Los valores por defecto sirven para desarrollo local. Estos no tienen default po
 
 | Variable | Dónde | De dónde sale |
 |---|---|---|
+| `BLOB_DIR` | core-api | Directorio privado donde se guardan los CVs en desarrollo (`./data/blobs`); el servicio **no arranca sin él**. Ignorado por git |
 | `JWT_SECRET` | core-api | `openssl rand -base64 48`, mínimo 32 bytes. El `.env.example` trae uno de desarrollo |
 | `PII_ENCRYPTION_KEY` · `PII_HASH_KEY` | core-api | `openssl rand -base64 32`, **dos distintas** |
 | `S3_*` | core-api | Bucket privado de desarrollo |
