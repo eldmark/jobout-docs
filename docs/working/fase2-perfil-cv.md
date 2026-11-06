@@ -385,7 +385,7 @@ trabajar en paralelo.
   skills; esquema de perfil y CVs; `BlobStore`; texto de PDF/DOCX y extractor; rutas de CV, perfil y
   confirmación; borrado de cuenta con archivos; y las pantallas. Suite del backend integrado: 325
   pruebas; frontend: 230.
-- **Hallazgo de seguridad (corregido en `jb-29`): los valores de las consultas salían en claro en los
+- **Hallazgo de seguridad (corregido en core-api #12, rama `jb-24`): los valores de las consultas salían en claro en los
   logs con `RUST_LOG=trace`.** `sea-orm` abre un *span* `trace` por consulta con la sentencia y sus
   valores como campos, y cualquier evento dentro los imprime como contexto: nombres, descripción del
   perfil, empresa, cargo y nombre del archivo. Con el filtro por defecto no pasaba, pero un
@@ -411,8 +411,9 @@ trabajar en paralelo.
   texto hecho a su medida); el archivo se inyectó con un `File` creado en la página porque la
   herramienta solo sube archivos que el usuario comparte; la herramienta bloquea leer cookies, así que
   `HttpOnly` no se comprobó en el navegador; solo se vio en oscuro y a ancho de escritorio.
-- **Observaciones visuales sin arreglar:** la etiqueta «Primario» se estira como una barra a todo el
-  ancho de la tarjeta, y el selector de archivo conserva el texto del navegador («Choose File»).
+- **Observaciones visuales:** la etiqueta «Primario» se estiraba como una barra a todo el ancho de la
+  tarjeta, y el selector de archivo conservaba el texto del navegador («Choose File»). Arreglo en
+  jobout-web #5 (rama `jb-31`), **todavía sin verificar en un navegador**.
 - **Sin probar:** U14 a nivel de ruta (tiempo agotado: no hay forma de inyectarlo sin tocar
   `AppState`); el bucle de 60 s de `storage_cleanup` en `main` (la lógica sí está probada llamando a la
   función); PDFs reales y CVs con columnas o tablas, que el extractor lee desordenados.
@@ -420,3 +421,27 @@ trabajar en paralelo.
   compilación compartido y bloqueó a tres agentes (se movió a `/home`); `/tmp` se limpió al cambiar de
   día y se perdieron worktrees y scripts (las ramas estaban subidas, no se perdió código); PostgreSQL
   quedó detenido tras un reinicio; y `gh` cambió de cuenta a la de trabajo mientras se trabajaba.
+- **2026-11-06 — medición del extractor con un corpus sintético** (core-api #17, rama `jb-32`):
+  22 CVs inventados con respuesta conocida (16 de texto, 4 PDF, 3 DOCX). Skills 100 % de precisión
+  y recall, idiomas 100 %, experiencias 90 % (empresa + cargo + inicio). **El 100 % es un techo
+  optimista**: el corpus lo escribió quien tenía el extractor a la vista. Lo que sigue fallando y
+  **no se resuelve con este corpus**: CVs de dos columnas intercaladas (propone una experiencia
+  errónea **con confianza alta**, el peor caso), prosa sin encabezados, y «Worked at X 2022-2024».
+  Hallazgo: `lopdf` solo saltaba de línea al final de cada bloque `BT…ET`, así que un PDF que escribe
+  toda la página en un solo bloque se leía como una línea y el extractor no veía nada (corregido).
+  **El criterio de cierre sigue abierto: hacen falta CVs reales.**
+- **Lecciones del CI de esta fase, para no repetirlas:**
+  1. **Un umbral de reloj absoluto es una prueba inestable** (D11 pedía «menos de 2 s»: 0.3 s en una
+     máquina y 2.4 s en CI). Se sustituyó por una medida de escalado con el medidor validado contra
+     una función cuadrática.
+  2. **Una prueba de logs que captura sin el filtro de producción ve cosas que producción no ve**,
+     y una que exige que no aparezca la URL que mandó el cliente asume algo falso (`tower_http` la
+     registra). `l10` se corrigió y se ordenó la pila para que el filtro llegue antes que la prueba.
+  3. **Un resumen de pruebas que se detiene en el primer fallo miente.** Sin `--no-fail-fast` cargo
+     se detiene en la primera suite que falla; se informó «326 pasadas, 0 fallidas» cuando `l10`
+     fallaba. Hay que usar `--no-fail-fast`, leer el «test result» de **cada** suite y comprobar el
+     código de salida.
+  4. **No se comparte `CARGO_TARGET_DIR` entre worktrees con código distinto.** Cargo decide por
+     fechas si un artefacto está fresco y las pruebas enlazaron un crate `migration` compilado por
+     otro worktree (sin las migraciones nuevas): 18 fallos falsos del tipo «relation "skills" does
+     not exist» que desaparecieron con un directorio propio. Cada worktree usa el suyo.

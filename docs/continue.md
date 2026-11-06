@@ -17,6 +17,9 @@ Entrada más reciente arriba. No borres entradas viejas: se van quedando como hi
 - Se corrigió una **fuga de datos en logs** (`RUST_LOG=trace` imprimía valores de consultas): ver
   `documentation/security.md`.
 - Recorrido completo en Chrome contra el backend real (detalle y límites en el archivo de la fase).
+- **2026-11-06:** la pila de core-api se reordenó para que todos sus PRs pasen el CI (el filtro de logs
+  pasó a #12 y se corrigió `l10`); #16 se cerró por redundante. Se midió el extractor con un corpus
+  sintético (core-api #17) y se pulió el frontend (web #5, sin ver aún en navegador).
 
 **Qué quedó a medias**
 
