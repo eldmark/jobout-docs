@@ -11,7 +11,7 @@ COMPOSE := docker compose
 API  := ../jobout-core-api
 WEB  := ../jobout-web
 
-.PHONY: help dev up down logs ps test setup check ports clean reset migrate shell-api shell-web
+.PHONY: help dev up down logs ps test test-api test-web setup check ports clean reset migrate shell-api shell-web
 
 help:
 	@echo "JobOut — desarrollo"
@@ -20,7 +20,9 @@ help:
 	@echo "  make down      apaga todo"
 	@echo "  make logs      sigue los registros"
 	@echo "  make ps        estado de los servicios"
-	@echo "  make test      corre las pruebas de los dos repos"
+	@echo "  make test      corre las pruebas de los dos repos (levanta PostgreSQL para el backend)"
+	@echo "  make test-api  solo el backend, contra PostgreSQL real"
+	@echo "  make test-web  solo el frontend"
 	@echo "  make migrate   aplica las migraciones"
 	@echo "  make setup     prepara los archivos locales, sin levantar"
 	@echo "  make clean     apaga y borra los volúmenes (SE PIERDE LA BASE DE DATOS)"
@@ -73,7 +75,7 @@ setup: check
 	@[ -f $(WEB)/.env.local ]      || { cp $(WEB)/.env.example $(WEB)/.env.local; echo "creado $(WEB)/.env.local"; }
 	@echo ""
 	@echo "Listo. Los valores por defecto sirven para desarrollo local."
-	@echo "Para Clerk, S3 y las claves de cifrado hay que completar los .env — ver documentation/desarrollo.md"
+	@echo "Para S3 hay que completar los .env; JWT_SECRET y las claves de PII ya traen valores falsos de desarrollo — ver documentation/desarrollo.md"
 
 dev: setup ports
 	@echo ""
@@ -92,14 +94,20 @@ logs:
 ps:
 	$(COMPOSE) ps
 
-test:
-	@echo "--- backend ---"
-	cd $(API) && cargo test
-	@echo "--- frontend ---"
+# El backend prueba contra PostgreSQL real (nunca SQLite): cada prueba crea y borra su propia
+# base. Se levanta solo el servicio postgres y se le pasa el puerto del .env (DB_PORT).
+test-api: setup
+	@$(COMPOSE) up -d --wait postgres
+	@set -a; [ -f .env ] && . ./.env; set +a; \
+	  cd $(API) && TEST_DATABASE_URL="postgres://jobout:jobout@localhost:$${DB_PORT:-5432}/postgres" cargo test --workspace
+
+test-web:
 	$(COMPOSE) run --rm web npm test
 
+test: test-api test-web
+
 migrate:
-	$(COMPOSE) run --rm core-api cargo run --bin migration -- up
+	$(COMPOSE) run --rm core-api cargo run -p migration -- up
 
 shell-api:
 	$(COMPOSE) exec core-api bash

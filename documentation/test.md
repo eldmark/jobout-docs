@@ -15,11 +15,32 @@ producto maneja PII y cobra dinero.
 
 ## Por repo
 
-| Repo | Unitarias | Integración |
+| Repo | Cómo se corre | Qué hay hoy |
 |---|---|---|
-| `jobout-core-api` | `cargo test` | `cargo test --test integration` contra una BD de prueba |
-| `jobout-interview` | `pytest` | `pytest -m integration` con el proveedor simulado |
-| `jobout-web` | `vitest` | Playwright para los flujos completos |
+| `jobout-core-api` | `make test-api` (desde `jobout-docs`) o `cargo test --workspace` con `TEST_DATABASE_URL` | Unitarias por módulo e integración contra **PostgreSQL real** en `tests/` |
+| `jobout-interview` | `pytest` / `pytest -m integration` con el proveedor simulado | Pendiente: el repo no existe todavía |
+| `jobout-web` | `npm test` (vitest + Testing Library) o `make test-web` | Lógica pura, componentes y *route handlers* con `fetch` simulado. Playwright para flujos completos: **no está instalado todavía** |
+
+### Backend: PostgreSQL real, nunca SQLite
+
+Los enums de PostgreSQL, los índices parciales y las FK se comportan distinto en otros motores, así
+que las pruebas de esquema y de endpoints corren contra PostgreSQL.
+
+- `make test-api` levanta solo el servicio `postgres` y le pasa a las pruebas el puerto de tu `.env`
+  (`DB_PORT`).
+- Sin `make`: `TEST_DATABASE_URL=postgres://jobout:jobout@localhost:<puerto>/postgres cargo test --workspace`.
+  Si no se define, las pruebas usan el puerto `5532`.
+- **Cada prueba crea su propia base** (`test_<uuid>`), la migra y la borra al terminar
+  (`tests/common/mod.rs`). Nunca tocan la base `jobout` de desarrollo.
+- En CI hay un servicio `postgres` y `TEST_DATABASE_URL` apunta a él; el CI corre
+  `cargo test --workspace` para no dejar crates sin probar (el de `migration` también).
+
+### Cómo se sabe que un test sirve
+
+Un test que nunca falló no prueba nada. Al terminar una tarea se **rompe el código a propósito**
+(quitar una comprobación, invertir una condición) y se verifica que un test cae; después se
+restaura. Si la mutación sobrevive, o el test no sirve o la mutación era equivalente (y se
+descarta con una nota). Así se encontraron huecos en la Fase 1.
 
 ## Qué se prueba en cada nivel
 
@@ -71,4 +92,5 @@ Estas no son opcionales en ningún endpoint que toque datos de usuario:
 
 - Configuración de CI y qué corre en cada PR.
 - Umbral de cobertura, si es que se pone uno.
-- Base de datos de prueba: contenedor efímero por corrida contra una compartida.
+- Playwright para los flujos completos del frontend (hoy el recorrido de punta a punta se hace
+  a mano con el backend real y queda anotado en el archivo de la fase).

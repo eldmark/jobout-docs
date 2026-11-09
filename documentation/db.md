@@ -246,14 +246,18 @@ Empresarial) y no se toca.
 | `availability_to_travel` | boolean | |
 | `document_type_id` · `gender_id` · `marital_status_id` · `country_of_residency_id` · `driver_license_id` | uuid | FK a catálogos, todos nullable |
 
+> **Estado (Fase 2):** la tabla existe **solo con `applicant_id` y `phone` (cifrado)**. Las demás
+> columnas se añaden cuando una fase las necesite: cuanto menos dato personal se guarde, menos hay
+> que proteger. Esta tabla no la devuelve `GET /me`.
+
 Los catálogos demográficos son **opcionales**: `gender_id` y `marital_status_id` pasan a
 nullable. Un candidato tiene que poder no responderlos. Como dato de perfil son legítimos;
 como criterio de filtro de una oferta, no (ver `job_offers`).
 
 ### `professional_data` — 1:1 con `applicants`
 
-`applicant_id` FK unique · `description (text)` · `last_academic_level_id` FK ·
-`profession_id` FK · `last_job_hierarchy_id` FK
+`applicant_id` FK unique (cascade) · `description (text)` · `last_academic_level_id` FK ·
+`profession_id` FK · `last_job_hierarchy_id` FK. Las tres FK son nullable. *(Migrada en la Fase 2.)*
 
 `resume_url` se elimina: los CVs ahora viven en la tabla `cvs`, con versiones y sin URL suelta.
 
@@ -265,10 +269,35 @@ como criterio de filtro de una oferta, no (ver `job_offers`).
 `applicant_languages` — `applicant_id` · `language_id` FK · `proficiency` enum
 (`native` · `advanced` · `intermediate` · `basic`)
 
-`applicant_skills` — `applicant_id` · `skill_id` FK · `level` enum · `years_of_experience (int, null)`
+`applicant_skills` — `applicant_id` · `skill_id` FK · `level` enum `skill_level` (`beginner` ·
+`intermediate` · `advanced` · `expert`, nullable) · `years_of_experience (int, null, ≥ 0)`.
+**Única por `(applicant_id, skill_id)`.**
 
-`applicant_extra_knowledge` — `applicant_id` · `description (text)`, para lo que no entra en
-`skills`.
+`applicant_languages` — única por `(applicant_id, language_id)`; `proficiency` es el enum
+`proficiency` (`native` · `advanced` · `intermediate` · `basic`), **no nulo**.
+
+`applicant_extra_knowledge` — `applicant_id` **único** · `description (text)`, para lo que no entra
+en `skills`.
+
+*(Todas migradas en la Fase 2, con FK `ON DELETE CASCADE` desde `applicants` y las columnas de
+auditoría habituales.)*
+
+### `applicant_experiences`
+
+> **Tabla nueva en la Fase 2.** HU-03 pide extraer la «experiencia» del CV y el diseño original no
+> tenía dónde guardarla.
+
+| Columna | Tipo | Notas |
+|---|---|---|
+| `applicant_id` | uuid | FK, cascade |
+| `company` | varchar | not null. En claro: el matching futuro la necesita |
+| `title` | varchar | not null. En claro |
+| `start_date` | date | not null |
+| `end_date` | date | null = trabajo actual. CHECK `end_date IS NULL OR end_date >= start_date` |
+| `description` | bytea | null. **Cifrado**: es texto libre y puede contener casi cualquier cosa |
+| `position` | int | orden en el que la persona las presenta |
+
+Tradeoff de cifrar `description`: no se puede buscar por texto dentro de las descripciones.
 
 **Por qué no `json`:** HU-30 es «ver ofertas compatibles con mi perfil». Con JSON, el matching
 es un escaneo de tabla completa parseando documentos. Con tablas puente, es un JOIN indexado.
@@ -299,9 +328,30 @@ idiomas — Sofía entrevista en inglés hoy, y mañana hay un recruiter en port
 
 Nunca una URL permanente: `core-api` emite URLs firmadas de vida corta tras verificar el dueño.
 
-`cv_extractions` — `cv_id` FK · `extracted (jsonb)` · `model` · `extracted_at` ·
-`reviewed_by_applicant (boolean)`. Acá **sí** va `jsonb`: es la salida cruda del extractor, y lo
-que el candidato confirma se copia a las tablas del perfil (HU-03, HU-04).
+`cv_extractions` — `cv_id` FK **único** (cascade) · `extracted (jsonb, not null)` · `status` enum
+`cv_extraction_status` (`ready` · `failed`) · `reason (varchar, null)` (por qué falló:
+`sin_texto`, `ilegible`, `tiempo_agotado`) · `model` · `extracted_at` ·
+`reviewed_by_applicant (boolean, default false)`. Acá **sí** va `jsonb`: es la propuesta del
+extractor, y lo que el candidato confirma se copia a las tablas del perfil (HU-03, HU-04).
+**`extracted` solo contiene** `{description, skills[], languages[], experiences[]}`: **nunca
+teléfono, email ni dirección** (el extractor no los extrae), porque esa columna no se cifra.
+El texto completo del CV no se guarda en ningún lado.
+
+`cvs`: `UNIQUE (applicant_id, version)` y un índice único parcial
+`cvs_one_primary_per_applicant_idx` (un solo `is_primary = true` por candidato). `storage_key` es un
+UUID aleatorio, nunca el nombre del archivo ni un id de la persona. *(Migradas en la Fase 2.)*
+
+### `pending_storage_deletions`
+
+> **Tabla nueva en la Fase 2.** Borrar la cuenta ya no cabe en una sola transacción: los archivos
+> viven fuera de PostgreSQL. Si la base se borra y el borrado del archivo falla, la persona
+> creería que su CV desapareció cuando sigue ahí.
+
+`id` · `storage_key (bytea, cifrado)` · `attempts (int, default 0)` · `last_attempt_at (null)` ·
+auditoría. Es una bandeja de salida: el borrado inserta aquí las claves de archivo **en la misma
+transacción** que borra los datos, y un proceso de reintento la vacía cuando el archivo ya no
+existe. **Sin FK a `users`**, por la misma razón que `privacy_events`: tiene que sobrevivir al
+borrado de la persona.
 
 `cv_suggestions` — `cv_id` FK · `kind` enum · `content (text)` · `applied (boolean)` ·
 `created_at` (HU-24).
@@ -578,6 +628,14 @@ countries → states (country_id) → cities (state_id) → zones (city_id)
 `contract_types`
 
 **Nuevos:** `membership_types` · `languages` (ISO 639-1) · `skills`
+
+**Migrados en la Fase 2:** `languages` (`es`, `en`, `pt`), `skills` (**114** de software, curadas a
+mano), `academic_levels` (6), `professions` (12) y `job_hierarchies` (6). Las semillas viven en
+`migration/src/seeds.rs`. `skills` lleva además `aliases text[] NOT NULL DEFAULT '{}'`
+(`js` → `javascript`, `postgres` → `postgresql`…), que el extractor usa para reconocerlas; los
+`code` son `[a-z0-9-]` sin mayúsculas ni tildes (`csharp`, `nodejs`). El catálogo es **cerrado**:
+la persona elige de la lista y no puede inventar una skill. Los demás catálogos siguen sin
+migrar.
 
 **Eliminado:** `gender_preferences` — su único uso era filtrar ofertas por género.
 
