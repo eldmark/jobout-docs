@@ -25,6 +25,24 @@ jb-19-fix-zone-fk
 
 **Nunca se commitea directo a `main`.** Rama, PR, revisión, merge.
 
+### `develop`: donde se integra
+
+```
+jb-##-slug ──PR──▶ develop ──PR──▶ main
+```
+
+- Las ramas de trabajo abren su PR **hacia `develop`**, no hacia `main`.
+- Al entrar a `develop` corre el **CI completo** (formato, pruebas, migraciones, imagen, secretos).
+  Los PR hacia `develop` solo validan el nombre de la rama y las cuatro secciones del cuerpo.
+- Cuando `develop` está verde y quedó lo que se quería, se abre **un PR `develop → main`**; ahí el
+  CI corre de nuevo y se aplican las reglas de `main` (aprobación y CI en verde).
+- Un PR hacia `develop` que rompe el CI se arregla en el siguiente PR hacia `develop`, **antes** de
+  abrir el PR a `main`. `main` solo recibe `develop` verde.
+- **Después de cada merge a `main`, `develop` se sincroniza con `main`** (`git switch develop &&
+  git merge main`). Si el merge a `main` fue squash, el historial de `develop` diverge de `main` y
+  sin esto el siguiente PR trae conflictos falsos.
+- Un arreglo urgente se hace desde `main` (`jb-##-hotfix-...` → `main`) y luego se baja a `develop`.
+
 Una rama = una tarea. Si a mitad de camino descubrís algo que no era parte de la tarea,
 anotalo en [`docs/bugs.md`](docs/bugs.md) y abrí otra rama. Un PR que hace tres cosas no lo
 revisa nadie bien.
@@ -152,7 +170,7 @@ sugerencia y se mergea igual.
 
 ## Merge
 
-**Squash merge.** Un commit por PR en `main`, con el título del PR.
+**Squash merge.** Un commit por PR, con el título del PR (hacia `develop` y de `develop` hacia `main`).
 
 El mensaje del commit va **en inglés**, siempre, sin importar el idioma de la conversación o de
 la documentación. Sin atribución de IA de ningún tipo.
