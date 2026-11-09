@@ -1,13 +1,17 @@
 name: CI
 
+# El CI completo corre al ENTRAR a develop (push) y en los PR hacia main.
+# Los PR hacia develop solo validan rama y cuerpo (job `pr`): develop es donde se integra.
 on:
   pull_request:
+    branches: [main, develop]
   push:
-    branches: [main]
+    branches: [main, develop]
 
 jobs:
   links:
     name: Enlaces internos
+    if: github.event_name != 'pull_request' || github.base_ref == 'main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -35,6 +39,7 @@ jobs:
 
   secretos:
     name: Sin secretos
+    if: github.event_name != 'pull_request' || github.base_ref == 'main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -69,7 +74,7 @@ jobs:
       - name: La rama sigue el formato jb-##-slug
         run: |
           rama="${{ github.head_ref }}"
-          if ! echo "$rama" | grep -qE '^jb-[0-9]+-[a-z0-9-]+$'; then
+          if ! echo "$rama" | grep -qE '^(jb-[0-9]+-[a-z0-9-]+|develop)$'; then
             echo "::error::rama '$rama' no sigue el formato jb-##-slug (ej: jb-07-implementation)"
             exit 1
           fi
