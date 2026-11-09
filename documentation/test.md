@@ -18,7 +18,7 @@ producto maneja PII y cobra dinero.
 | Repo | Cómo se corre | Qué hay hoy |
 |---|---|---|
 | `jobout-core-api` | `make test-api` (desde `jobout-docs`) o `cargo test --workspace` con `TEST_DATABASE_URL` | Unitarias por módulo e integración contra **PostgreSQL real** en `tests/` |
-| `jobout-interview` | `pytest` / `pytest -m integration` con el proveedor simulado | Pendiente: el repo no existe todavía |
+| `jobout-interview` | `pytest` / `pytest -m integration` con el proveedor simulado | Repo creado con solo documentación; el código llega en la Fase 4 (ver `docs/pruebas.md` allá) |
 | `jobout-web` | `npm test` (vitest + Testing Library) o `make test-web` | Lógica pura, componentes y *route handlers* con `fetch` simulado. Playwright para flujos completos: **no está instalado todavía** |
 
 ### Backend: PostgreSQL real, nunca SQLite

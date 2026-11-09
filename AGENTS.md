@@ -27,7 +27,7 @@ y estado. Cada repo de servicio lleva un `AGENTS.md` corto que apunta acá.
 |---|---|---|---|
 | [`jobout-docs`](https://github.com/eldmark/jobout-docs) | Markdown | Este. Reglas, arquitectura, fases, bugs, traspaso | No |
 | [`jobout-core-api`](https://github.com/eldmark/jobout-core-api) | Rust · Axum · SeaORM · PostgreSQL | Auth, usuarios, CVs, ofertas, scores, historial, pagos | **Sí, cifrada** |
-| `jobout-interview` | Python · FastAPI | Relay de OpenAI Realtime, animación facial del avatar. **Pendiente** | **Cero** |
+| [`jobout-interview`](https://github.com/eldmark/Job-out-interview) | Python · FastAPI | Relay de OpenAI Realtime, animación facial del avatar. **Solo documentación hasta la Fase 4** | **Cero** |
 | [`jobout-web`](https://github.com/eldmark/jobout-web) | Next.js | Interfaz, dashboard, sala de entrevista | No persiste |
 
 **La frontera de seguridad más importante del proyecto:** `jobout-interview` no tiene

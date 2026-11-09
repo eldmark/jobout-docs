@@ -15,7 +15,7 @@ CV y recibe feedback con puntuación. No es una bolsa de trabajo.
 |---|---|---|
 | [`jobout-docs`](https://github.com/eldmark/jobout-docs) | Markdown | Este |
 | [`jobout-core-api`](https://github.com/eldmark/jobout-core-api) | Rust · Axum · SeaORM · PostgreSQL | Datos, auth, scoring. Toda la PII vive acá |
-| `jobout-interview` | Python · FastAPI | Entrevista en tiempo real y avatar. Sin acceso a la BD. **Pendiente** |
+| [`jobout-interview`](https://github.com/eldmark/Job-out-interview) | Python · FastAPI | Entrevista en tiempo real y avatar. Sin acceso a la BD. **Solo documentación hasta la Fase 4** |
 | [`jobout-web`](https://github.com/eldmark/jobout-web) | Next.js | Interfaz |
 
 ## Levantar el proyecto
