@@ -7,6 +7,15 @@ Entrada más reciente arriba. No borres entradas viejas: se van quedando como hi
 
 ---
 
+## 2026-11-09 — Fase 2 mergeada y repo de entrevista documentado
+
+- Las pilas de la Fase 2 (docs, web y core-api #9 a #15) están en `main`; core-api #17 (calidad del
+  extractor) en cola de CI al escribir esto. Fases 3, 4 y 5 en `docs/working/` como borradores.
+- Se documentó el repo [`Job-out-interview`](https://github.com/eldmark/Job-out-interview) (PR #1 allá):
+  servicio, protocolo WebSocket, API interna, proveedores, seguridad, pruebas y desarrollo. **Sin código.**
+- Para pasar a la siguiente fase solo falta que el equipo revise los casos de verdad de la Fase 3 y
+  resuelva sus decisiones abiertas.
+
 ## 2026-11-08 — Fase 3 redactada
 
 - Se redactó [`working/fase3-entrevista.md`](working/fase3-entrevista.md) con ~130 casos de verdad
