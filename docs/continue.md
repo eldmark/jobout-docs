@@ -13,6 +13,8 @@ Entrada más reciente arriba. No borres entradas viejas: se van quedando como hi
   (catálogo, motor, evaluación, sesiones, turnos, score, cuota por plan, seguridad, frontend) y 9
   decisiones abiertas. **No hay código de la Fase 3.**
 - Mientras tanto se mergea la pila de la Fase 2 en core-api (#12 a #15, luego #17).
+- Se dejaron en borrador las Fases 4 (voz, motor de IA y memoria) y 5 (ofertas y empresas). Ninguna tiene
+  código. HU-24 (sugerencias de CV) y HU-40/41 (ver y exportar mis datos) quedan sin fase asignada.
 - Siguiente: que el equipo revise los casos y resuelva las decisiones (sobre todo motor y cuota por plan).
 
 ## 2026-11-05 — Fase 2 implementada, pendiente de revisión y de CVs reales

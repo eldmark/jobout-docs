@@ -13,3 +13,5 @@ Cuando una fase cumple todos sus criterios de cierre, se mueve a
 
 - [`fase2-perfil-cv.md`](fase2-perfil-cv.md) — perfil y CV (HU-02, HU-03, HU-04). Implementada; falta medir con CVs reales y el recorrido de una persona.
 - [`fase3-entrevista.md`](fase3-entrevista.md) — la entrevista en modo texto (HU-10, 12, 14, 15, 20–23). Casos de verdad pendientes de revisión del equipo; sin código todavía.
+- [`fase4-voz-memoria.md`](fase4-voz-memoria.md) — motor de IA, voz y memoria del recruiter (HU-11, HU-13). **Borrador**; depende de la Fase 3.
+- [`fase5-ofertas-empresas.md`](fase5-ofertas-empresas.md) — ofertas, matching y lado empresa (HU-30 a 32, 50 a 56). **Borrador**; independiente de la Fase 4.
