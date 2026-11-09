@@ -459,31 +459,50 @@ unique compuesto. Precalculado: HU-30 tiene que responder rápido, no calcular a
 
 ### `ai_recruiters`
 
-El elenco: Ana, Martín, Laura, Carlos, Sofía. Ver [producto.md](producto.md).
+El elenco: Ana, Martín, Laura, Carlos, Sofía. Ver [producto.md](producto.md). Se siembra en la
+migración `m20261108_000001_create_interview_catalog`; en el código se nombran por `code`
+(`RecruiterCode`), nunca por id, porque los ids cambian entre entornos.
 
 | Columna | Tipo | Notas |
 |---|---|---|
 | `id` | uuid v7 | PK |
-| `code` | varchar unique | `ana`, `martin`, `laura`… Estable, se usa en el código |
+| `code` | varchar unique | `ana`, `martin`, `laura`, `carlos`, `sofia`. Estable, se usa en el código |
 | `display_name` | varchar | |
 | `role_title` | varchar | «CTO», «Recruiter Big Tech» |
 | `personality` | text | Descripción visible para el usuario |
-| `system_prompt` | text | Configuración, versionada en git y sincronizada acá |
-| `voice_id` | varchar | Voz del proveedor |
-| `avatar_asset_key` | varchar | Imagen base para la animación |
-| `language_id` | uuid | FK. Sofía entrevista en inglés |
-| `rubric_id` | uuid | FK |
+| `system_prompt` | text | Configuración, versionada en git y sincronizada acá. Se siembra vacío (`''`): es del motor de IA |
+| `voice_id` | varchar null | Voz del proveedor |
+| `avatar_asset_key` | varchar null | Imagen base para la animación |
+| `language_id` | uuid | FK a `languages`, buscado por `code`. Sofía entrevista en inglés (`en`); los otros cuatro en español (`es`) |
+| `rubric_id` | uuid | FK. Una rúbrica propia por recruiter |
 | `active` | boolean | |
+| `sort_order` | int | Orden de presentación |
+
+Semillas: `ana` (RRHH), `martin` (CTO), `laura` (Recruiter Big Tech), `carlos` (CEO de startup) y
+`sofia` (Recruiter internacional).
 
 ### `rubrics` y `rubric_versions`
 
 Un score de hace tres meses tiene que seguir explicándose con la rúbrica con la que se calculó.
 Por eso la rúbrica se versiona y el score guarda **qué versión** lo produjo.
 
-`rubrics` — `id` · `name` · `description`
+`rubrics` — `id` · `name` (único) · `description`
 
-`rubric_versions` — `rubric_id` FK · `version (int)` · `criteria (jsonb)` · `published_at` ·
-`is_current (boolean)`. Una versión publicada **nunca se edita**: se publica otra.
+`rubric_versions` — `id` · `rubric_id` FK · `version (int)` · `criteria (jsonb)` · `published_at` ·
+`is_current (boolean)`. `(rubric_id, version)` es único.
+
+- **Una sola vigente por rúbrica**: índice único parcial sobre `rubric_id` donde `is_current`.
+- **Una versión publicada nunca se edita ni se borra**: se publica otra. Lo garantiza un trigger
+  (`rubric_versions_immutable_trg`): si `published_at` no es null, cualquier `UPDATE` que cambie
+  `rubric_id`, `version`, `criteria` o `published_at`, y cualquier `DELETE`, falla. Lo único que se
+  puede cambiar es `is_current` (pasa a `false` cuando entra la nueva). Un borrador
+  (`published_at` null) sí se edita.
+- **`criteria`** es un arreglo de objetos `{code, name, max_points, description}` cuyos
+  `max_points` suman **exactamente 100**. Los `code` son `especificidad`, `estructura`,
+  `relevancia`, `claridad` y `profundidad`; cada recruiter les da un peso distinto (Martín pesa más
+  la especificidad y la profundidad; Laura, la estructura). Esa suma la vigila una prueba, no la base.
+
+Semillas: una rúbrica (`rubrica-<code>`) con su versión 1 publicada y vigente por recruiter.
 
 ### `interview_levels`
 
@@ -491,9 +510,14 @@ Por eso la rúbrica se versiona y el score guarda **qué versión** lo produjo.
 |---|---|
 | `code` | `junior` · `startup` · `amazon` · `google` · `mckinsey` |
 | `display_name` · `description` | |
-| `sort_order` | int |
-| `previous_level_id` | uuid null. El nivel que hay que pasar antes |
-| `min_score_to_unlock` | smallint. Score mínimo en el anterior |
+| `sort_order` | int. 0 a 4, de menor a mayor |
+| `previous_level_id` | uuid null. El nivel que hay que pasar antes. Junior es null; el resto forma una cadena sin ciclos (un nivel no puede preceder a sí mismo) |
+| `min_score_to_unlock` | smallint null, entre 1 y 100. Score mínimo en el anterior. Null solo si no hay nivel previo |
+| `available` | boolean, por defecto `false`. Solo los niveles con banco de preguntas se pueden empezar |
+| `active` | boolean |
+
+Semillas: Junior (sin mínimo), Startup (60), Amazon (70), Google (75) y McKinsey (80). Solo Junior
+y Startup están `available`; los otros tres existen pero no se pueden empezar.
 
 ### `interview_sessions`
 
