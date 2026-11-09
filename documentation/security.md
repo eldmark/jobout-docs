@@ -133,3 +133,33 @@ Reglas cortas, para tenerlas en la cabeza:
   `login_attempts` y deja constancia sin datos personales en `privacy_events`.
 - Los errores de base de datos se registran por categoría, nunca con su texto: puede traer
   valores de la fila.
+
+## Archivos de CV y logs (Fase 2)
+
+- **Validación por contenido**, nunca por extensión ni `Content-Type`; 5 MB como máximo, y la lectura
+  se corta al llegar al tope (un cuerpo infinito o un `Content-Length` mentiroso no agotan memoria).
+  Contra archivos maliciosos: 15 páginas de PDF, 20 MB descomprimidos de DOCX (se suma el tamaño
+  declarado de todas las entradas **antes** de leer, contra zip bombs) y 10 s de tope. Sin `unsafe` ni
+  procesos externos. **Riesgos que quedan:** el hilo de parseo no se puede cancelar (si `lopdf` se
+  cuelga de verdad, sigue gastando CPU aunque la petición ya respondió), un PDF con streams
+  comprimidos enormes no tiene tope de memoria propio, y no hay antivirus.
+- **El nombre del archivo nunca forma parte de la clave de almacén** (es un UUID v7 aleatorio) y solo
+  se muestra saneado. `cvs.storage_key` y las claves de la bandeja de borrado se guardan cifradas.
+- **El texto extraído no se guarda en ningún lado**, y el extractor **no extrae datos de contacto**,
+  porque `cv_extractions.extracted` no se cifra.
+- **`description` de las experiencias y el teléfono van cifrados.** `company` y `title` en claro (el
+  matching futuro los necesita); es una decisión abierta del plan.
+- **Almacén en disco = solo desarrollo:** directorio `0700`, archivos `0600`, escritura atómica y sin
+  sobrescribir. No tiene redundancia ni cifrado en reposo propio. **Hay que usar S3 antes de
+  producción.**
+
+### Los logs nunca llevan valores de consultas
+
+`sea-orm` abre un *span* de nivel `trace` por cada consulta con la sentencia **y sus valores** como
+campos, y cualquier evento dentro (incluso un INFO propio) los imprime como contexto. Varios valores
+van en claro: nombres, descripción del perfil, empresa, cargo, nombre del archivo. Con
+`RUST_LOG=trace` salían en los logs.
+
+`telemetry::env_filter` fija **por código** que `sea_orm`, `sqlx` y `sea_orm_migration` no pasen de
+`warn`, venga lo que venga en `RUST_LOG`. Desactivar `sqlx_logging` **no** basta (se probó). Las
+pruebas de logs capturan con ese filtro al máximo. Verificado con el binario real y `RUST_LOG=trace`.

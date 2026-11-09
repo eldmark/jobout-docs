@@ -7,6 +7,33 @@ Entrada más reciente arriba. No borres entradas viejas: se van quedando como hi
 
 ---
 
+## 2026-11-05 — Fase 2 implementada, pendiente de revisión y de CVs reales
+
+**Qué se hizo**
+
+- Pasos 1 a 11 de la Fase 2 con TDD y mutaciones: catálogos, esquema de perfil y CVs, almacén de
+  archivos, lectura de PDF/DOCX y extractor determinista, rutas de CV, perfil y confirmación, borrado
+  de cuenta con archivos, y las pantallas. Todo en PRs apilados; el orden de merge está en cada PR.
+- Se corrigió una **fuga de datos en logs** (`RUST_LOG=trace` imprimía valores de consultas): ver
+  `documentation/security.md`.
+- Recorrido completo en Chrome contra el backend real (detalle y límites en el archivo de la fase).
+- **2026-11-06:** la pila de core-api se reordenó para que todos sus PRs pasen el CI (el filtro de logs
+  pasó a #12 y se corrigió `l10`); #16 se cerró por redundante. Se midió el extractor con un corpus
+  sintético (core-api #17) y se pulió el frontend (web #5, sin ver aún en navegador).
+
+**Qué quedó a medias**
+
+- **Medir el extractor con CVs reales del equipo** (5 PDF y 2 DOCX con su permiso). Es el criterio que
+  decide si basta el extractor determinista o hace falta un LLM.
+- Que una persona repita el recorrido en un navegador.
+- Las siete decisiones abiertas del plan se adoptaron por defecto sin revisión del equipo.
+- **S3 antes de producción**: el almacén en disco no tiene redundancia.
+
+**Pendiente heredado:** ramas `jb-05-pii-crypto` y `jb-07-password-jwt` sobrantes en `jobout-core-api`;
+OAuth aplazado; costo real de la voz frente al supuesto de texto.
+
+---
+
 ## 2026-11-04 — Fase 1 mergeada y Fase 2 redactada
 
 **Qué se hizo**

@@ -85,3 +85,20 @@ Páginas: `/sign-up`, `/sign-in`, `/dashboard` (protegida), `/adios`. El middlew
 `jo_session` **o** `jo_refresh` (el access dura 15 min). Los textos están en
 `lib/messages/es.ts`, nunca dentro de los componentes. El borrado de cuenta abre un diálogo
 accesible, exige la contraseña y llama a la API una sola vez.
+
+## Perfil y CV (Fase 2)
+
+Páginas protegidas: `/profile/cv` (subir el CV y **revisar lo propuesto**) y `/profile` (ver y editar
+el perfil, y descargar, marcar como primario o borrar un CV). El dashboard muestra «Completa tu
+perfil» mientras no haya CV ni skills.
+
+- La capa servidor (`app/api/cvs*`, `app/api/profile`, `app/api/catalogs/[nombre]`) reenvía a
+  `core-api` con el token de las cookies `HttpOnly`; el navegador nunca ve tokens ni rutas del
+  almacén. La descarga pasa por el servidor.
+- El selector acepta solo PDF y DOCX y rechaza más de 5 MB **antes** de enviar.
+- **Nada se guarda hasta pulsar «Confirmar»**, que llama una sola vez. Las skills se eligen del
+  catálogo con búsqueda; no se pueden inventar.
+- Si la extracción falla (`sin_texto`, `ilegible`, `tiempo_agotado`), se explica en español y se
+  ofrece llenar el perfil a mano.
+- `route-guard.ts` deja pasar sin sesión `/api/cvs`, `/api/profile` y `/api/catalogs` hacia sus
+  handlers, que responden 401 en JSON; así un `fetch` sin sesión no recibe el HTML de `/sign-in`.
