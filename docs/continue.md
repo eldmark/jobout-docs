@@ -7,6 +7,14 @@ Entrada más reciente arriba. No borres entradas viejas: se van quedando como hi
 
 ---
 
+## 2026-11-08 — Fase 3 redactada
+
+- Se redactó [`working/fase3-entrevista.md`](working/fase3-entrevista.md) con ~130 casos de verdad
+  (catálogo, motor, evaluación, sesiones, turnos, score, cuota por plan, seguridad, frontend) y 9
+  decisiones abiertas. **No hay código de la Fase 3.**
+- Mientras tanto se mergea la pila de la Fase 2 en core-api (#12 a #15, luego #17).
+- Siguiente: que el equipo revise los casos y resuelva las decisiones (sobre todo motor y cuota por plan).
+
 ## 2026-11-05 — Fase 2 implementada, pendiente de revisión y de CVs reales
 
 **Qué se hizo**
