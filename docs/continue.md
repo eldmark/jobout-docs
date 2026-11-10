@@ -7,6 +7,49 @@ Entrada más reciente arriba. No borres entradas viejas: se van quedando como hi
 
 ---
 
+## 2026-11-10 — Fase 3 en `develop` y recorrida; el cierre depende de personas
+
+**Qué se hizo**
+
+- La Fase 3 (entrevista en modo texto) tiene los **pasos 1 a 11 mergeados en `develop`**: core-api #19
+  a #27, web #7 a #9 y docs #15 a #18. Esta entrada lo registra recién ahora: las anteriores decían que
+  no había código.
+- `jb-50-fase3-cierre` (docs): pasos marcados con sus ramas, tabla de las decisiones que quedaron en el
+  código, `frontend.md` (páginas de entrevista), `test.md` (cómo se prueba la entrevista), `api.md`
+  (`speaker` es `recruiter` | `applicant`) y `desarrollo.md` (migrar la primera vez, cómo hacerlo sin
+  `make`, PostgreSQL nativo en el 5432).
+- Pruebas con `--no-fail-fast`: **533 en verde** en core-api (39 binarios, dentro del contenedor) y
+  **505** en web, con `tsc` y `eslint` limpios.
+- **Recorrido de punta a punta** por un agente contra el backend real: registro, elegir recruiter y
+  nivel, repregunta, pausa y reanudación, una sola sesión activa, score con desglose, desbloqueo de
+  Startup, transcripción y la cuota del plan Gratis. Todo según el contrato; detalle en
+  `working/fase3-entrevista.md`.
+
+**Qué quedó a medias**
+
+- **Lo que no puede hacer un agente:** la pasada de una persona en el navegador (este recorrido no
+  tuvo capturas) y **la entrevista con Luis**, que decide si hace falta el motor de IA.
+- Las nueve decisiones de la fase se adoptaron con la opción recomendada **sin revisión del equipo**.
+- `develop` no está en `main` en docs, core-api ni web: falta el PR `develop → main` en cada uno, con
+  una aprobación.
+- Tres bugs nuevos en `bugs.md`. **BUG-001 es de seguridad** (contraseña en la URL si se envía el
+  registro antes de que cargue el JavaScript).
+- Sigue abierta la Fase 2: CVs reales y la pasada de una persona.
+
+**Qué sigue**
+
+1. Arreglar BUG-001 en su propia rama, antes que cualquier otra cosa.
+2. Que el equipo confirme las decisiones de la Fase 3 y haga las dos pasadas de personas (Fases 2 y 3).
+3. PR `develop → main` en los tres repos y, después, sincronizar `develop` con `main`.
+4. Revisión de casos de verdad de la siguiente fase. La 5 no depende de nada externo; la 4 necesita
+   antes proveedor, política de no entrenamiento y costo medido, y hay que releerla (sus ⚠ suponían una
+   Fase 3 que todavía no existía).
+
+**Pendiente heredado:** ramas sobrantes en `jobout-core-api` (`jb-05-pii-crypto`, `jb-07-password-jwt`,
+`jb-29-no-sql-values-in-logs`) y en `Job-out-interview` (`jb-01-service-docs`, `jb-36-develop-flow`);
+`jobout-web/package-lock.json` está en `.gitignore`, así que cada instalación resuelve versiones nuevas;
+OAuth aplazado; S3 antes de producción; costo real de la voz.
+
 ## 2026-11-09 — Fase 2 mergeada y repo de entrevista documentado
 
 - Las pilas de la Fase 2 (docs, web y core-api #9 a #15) están en `main`; core-api #17 (calidad del
