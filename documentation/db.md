@@ -637,11 +637,33 @@ borrado de la cuenta: es la constancia de que ocurrió (HU-05, HU-41).
 
 ### `usage_ledger`
 
-`user_id` · `interview_session_id` FK null · `provider` · `operation` · `units` ·
-`cost_micros (bigint)` · `occurred_at`.
+Migración `m20261108_000003_create_usage_ledger`.
+
+| Columna | Tipo | Notas |
+|---|---|---|
+| `id` | uuid v7 | PK |
+| `user_id` | uuid | FK → `users`, **`ON DELETE SET NULL`**, null. Borrar la cuenta deja la fila sin el id de la persona: el costo agregado sobrevive y nadie queda detrás |
+| `interview_session_id` | uuid | FK → `interview_sessions`, **`ON DELETE SET NULL`**, null. Borrar una sesión no borra su gasto, y por eso tampoco devuelve la cuota |
+| `provider` | varchar | not null. `deterministic` mientras el motor no cueste; el motor de IA traerá el suyo |
+| `operation` | varchar | not null. Hoy `interview_session` |
+| `units` | integer | not null, ≥ 0 |
+| `cost_micros` | bigint | not null, por defecto 0, ≥ 0 (millonésimas de la moneda de cobro) |
+| `occurred_at` | timestamptz | por defecto `now()` |
+
+Índices: `(user_id, operation, occurred_at)` (la cuenta mensual) e `(interview_session_id)`.
 
 Objetivo de negocio: costo por sesión conocido y con tope. Un usuario no puede quemar el margen
 del mes. Sin esta tabla no hay forma de saberlo hasta que llega la factura.
+
+**Cuota mensual por plan (Fase 3).** Cada sesión de entrevista iniciada escribe una fila
+(`operation = 'interview_session'`, `provider = 'deterministic'`, `units = 1`, `cost_micros = 0`),
+**en la misma transacción** que crea la sesión. La cuota del mes se cuenta sobre esas filas, en mes
+calendario UTC, contra `plans.monthly_simulations` (null = sin tope; Gratis 1, Estudiantil 10,
+Estándar 12). Sin suscripción activa (ninguna, vencida o cancelada) se aplica el tope de Gratis:
+nunca «sin tope». Cambiar de plan a mitad de mes aplica el tope nuevo a lo ya usado. Abandonar o
+borrar una sesión no devuelve la cuota. Superar el tope es `403 limite_del_plan` con `renews_at`
+(primer instante del mes siguiente, UTC). La variable `ENFORCE_PLAN_LIMITS=false` salta solo la
+comprobación; el uso se sigue registrando.
 
 ---
 
