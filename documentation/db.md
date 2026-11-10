@@ -521,37 +521,56 @@ y Startup están `available`; los otros tres existen pero no se pueden empezar.
 
 ### `interview_sessions`
 
+Migración `m20261108_000002_create_interviews`.
+
 | Columna | Tipo | Notas |
 |---|---|---|
 | `id` | uuid v7 | PK |
-| `applicant_id` | uuid | FK |
+| `applicant_id` | uuid | FK, `ON DELETE CASCADE`: borrar la cuenta borra sus sesiones |
 | `ai_recruiter_id` | uuid | FK |
 | `interview_level_id` | uuid | FK |
-| `job_offer_id` | uuid | FK **null** — practicar para una oferta concreta (HU-31) |
-| `rubric_version_id` | uuid | FK. Se fija al empezar, no al terminar |
-| `status` | enum | `created` · `in_progress` · `paused` · `completed` · `abandoned` |
-| `started_at` · `ended_at` | timestamptz | |
-| `duration_seconds` | int | null |
+| `job_offer_id` | uuid | **null, sin FK por ahora**: `job_offers` todavía no existe; la FK entra con la migración de ofertas — practicar para una oferta concreta (HU-31) |
+| `rubric_version_id` | uuid | FK, NOT NULL. Se fija al empezar, no al terminar |
+| `status` | enum `interview_status` | `created` · `in_progress` · `paused` · `completed` · `abandoned`. Por defecto `created` |
+| `started_at` · `paused_at` · `completed_at` | timestamptz | null hasta que ocurre cada hecho |
+| `last_activity_at` | timestamptz | NOT NULL, por defecto `now()` |
+| `created_at` · `updated_at` | timestamptz | |
 
-`paused` existe por HU-14: cortar a mitad y retomar después.
+Una persona tiene **a lo sumo una sesión abierta**: índice único parcial
+`interview_sessions_one_open_per_applicant_idx` sobre `applicant_id` donde `status` es
+`in_progress` o `paused`. Las `created`, `completed` y `abandoned` no tienen tope.
+
+`paused` existe por HU-14: cortar a mitad y retomar después. (El diseño original traía
+`ended_at` y `duration_seconds`; se reemplazan por `paused_at`/`completed_at` y la duración se
+calcula.)
 
 ### `interview_turns`
 
-`interview_session_id` FK · `seq (int)` · `speaker` enum (`recruiter` · `applicant`) ·
-`transcript (text)` · `started_at` · `ended_at` · `audio_ms (int)` · unique (`session_id`, `seq`).
+| Columna | Tipo | Notas |
+|---|---|---|
+| `id` | uuid v7 | PK |
+| `interview_session_id` | uuid | FK, `ON DELETE CASCADE` |
+| `seq` | int | ≥ 1. `UNIQUE (interview_session_id, seq)` |
+| `speaker` | enum `interview_speaker` | `recruiter` · `applicant` |
+| `kind` | varchar | CHECK: `question` · `follow_up` · `answer` · `closing` |
+| `transcript` | **bytea** | **Cifrado a nivel de aplicación** (AES-256-GCM, `nonce ‖ cifrado ‖ etiqueta`) con las `PiiKeys`, vía `interview::store_crypto`. Nunca texto en claro |
+| `audio_ms` | int | null (en modo texto no hay audio), ≥ 0 |
+| `created_at` | timestamptz | |
 
-**El audio no se persiste** salvo que el usuario lo pida. La transcripción sí: es lo que le da
-valor al feedback (HU-15) y a la memoria entre sesiones (HU-13). Ver [security.md](security.md).
+**El audio no se persiste** salvo que el usuario lo pida. La transcripción sí, cifrada: es lo que
+le da valor al feedback (HU-15) y a la memoria entre sesiones (HU-13), y es dato sensible. Ver
+[security.md](security.md).
 
 ### `interview_scores` — 1:1 con la sesión
 
 | Columna | Tipo | Notas |
 |---|---|---|
-| `interview_session_id` | uuid | FK unique |
-| `score` | smallint | 0–100 |
-| `confidence` | smallint | 0–100. Señales de voz |
-| `clarity` | smallint | 0–100. Contenido |
-| `breakdown` | jsonb | **El «por qué».** Los 2–3 puntos concretos que subirían el score |
+| `id` | uuid v7 | PK |
+| `interview_session_id` | uuid | FK unique, `ON DELETE CASCADE` |
+| `score` | smallint | NOT NULL, CHECK 0–100 |
+| `confidence` | smallint | **null**, CHECK 0–100. Señales de voz: en modo texto no existe |
+| `clarity` | smallint | NOT NULL, CHECK 0–100. Contenido |
+| `breakdown` | jsonb | NOT NULL. **El «por qué».** Los 2–3 puntos concretos que subirían el score |
 | `rubric_version_id` | uuid | FK. Con cuál se calculó |
 | `computed_at` | timestamptz | |
 
@@ -587,8 +606,9 @@ token muere. Ver el contrato en [api.md](api.md).
 
 ### `applicant_level_progress`
 
-`applicant_id` · `interview_level_id` · `unlocked_at` · `best_score` · `sessions_completed` ·
-unique compuesto (HU-23).
+`id` · `applicant_id` FK (`ON DELETE CASCADE`) · `interview_level_id` FK · `unlocked_at`
+(por defecto `now()`) · `best_score` (smallint null, 0–100) · `sessions_completed` (int, por
+defecto 0, ≥ 0) · `UNIQUE (applicant_id, interview_level_id)` (HU-23).
 
 ---
 
