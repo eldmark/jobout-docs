@@ -1,13 +1,16 @@
 # Fase 5 — Ofertas, matching y el lado empresa
 
-**Estado:** borrador (casos de verdad pendientes de revisión del equipo; **no hay código todavía**)
+**Estado:** borrador revisado contra el código el 2026-11-10 (casos de verdad pendientes de revisión del
+equipo; **no hay código todavía**)
 **Repos que toca:** jobout-core-api, jobout-web, jobout (documentación)
 **Depende de:** Fase 2 (perfil y catálogos). Es **independiente de la Fase 4**: puede ir antes, después
 o en paralelo si tocan repos y tablas distintas. La excepción es HU-31, que usa el motor de entrevista
 de la Fase 3.
 **Abierta:** 2026-11-08
 
-> Borrador escrito antes de que existan las Fases 3 y 4. Lo que dependa de ellas está marcado ⚠.
+> Borrador escrito antes de que existieran las Fases 3 y 4. El 2026-11-10 se releyó contra `develop`
+> (Fase 3 implementada): lo que el borrador daba por hecho y no existe está en «Lo que la revisión
+> contra el código encontró», y lo que dependía de la Fase 3 quedó en la decisión 12.
 
 ## Objetivo
 
@@ -21,7 +24,7 @@ con ofertas falsas ni inventadas**. Las primeras se cargan a mano con empresas r
 ## Historias de usuario que cubre
 
 - HU-30 — ver ofertas compatibles con mi perfil
-- HU-31 — practicar una entrevista específica para una oferta *(⚠ usa el motor de la Fase 3)*
+- HU-31 — practicar una entrevista específica para una oferta *(usa el motor de la Fase 3; ver la decisión 12)*
 - HU-32 — llevar registro de dónde apliqué
 - HU-50 — registrar mi organización
 - HU-51 — publicar una oferta
@@ -54,6 +57,42 @@ con ofertas falsas ni inventadas**. Las primeras se cargan a mano con empresas r
 8. **El matching puede ser injusto sin que nadie lo note.** Si se basa en habilidades escritas, premia
    a quien sabe escribir el CV. Se acepta como limitación y se hace **explicable** (HU-21 en espíritu).
 
+## Lo que la revisión contra el código encontró (2026-11-10)
+
+El borrador suponía piezas que no existen. Cada una cambia el alcance o agrega un paso:
+
+1. **Faltan casi todos los catálogos de una oferta.** Están migrados `academic_levels`,
+   `job_hierarchies`, `languages`, `professions` y `skills`. **No** existen `countries`, `states`,
+   `cities`, `zones`, `salary_ranges`, `working_shifts`, `contract_types`, `employment_sectors`,
+   `driver_licenses` ni `membership_types`, y `job_offers` y `companies` tienen FK a casi todos. El
+   caso OF12 decía «los catálogos de la Fase 2»: no alcanzan. Hace falta un paso propio (paso 1) y
+   decidir cuánta geografía se siembra (decisión 9).
+2. **No hay control por rol.** Las tablas `roles`, `permissions`, `role_permissions` y `user_roles`
+   están migradas, pero solo se siembran los roles `applicant` y `admin`, `permissions` está vacía y
+   nada las lee. La tabla de rutas (`src/routes/table.rs`) solo conoce `Access::Public` y
+   `Access::Authenticated`; `AuthUser` trae solo el id, y `GET /me` no dice qué roles tiene la
+   persona, así que el frontend no puede elegir menús (FC6). Hace falta un paso propio (paso 2):
+   `Access::Permission(...)` en la tabla de rutas, el rol de reclutador con sus permisos sembrados y
+   los roles en `/me`. *A favor:* el middleware ya consulta la cuenta en cada petición (para detectar
+   suspendidas), así que RO4 —quitar el rol corta el acceso en la siguiente petición— sale con esa
+   misma consulta.
+3. **Todo registro crea un `applicants` y el rol `applicant`** (`src/routes/auth.rs`). Un reclutador
+   que se registra es, además, candidato. EM8 lo da por bueno, pero nadie lo decidió (decisión 10).
+4. **Las invitaciones no tienen tabla.** EM4 y EM5 hablan de invitar reclutadores con un token de un
+   solo uso; `db.md` no tiene dónde guardarlo. Se propone `company_invitations`.
+5. **`access_audit` no está migrada** y PA8 la necesita: entra en el paso del panel.
+6. **`job_preferences` no está migrada** y MA1 usa «preferencias». O se migra aquí, o el matching no
+   las usa en esta fase (decisión 14).
+7. **Verificar una empresa no tiene quién ni cómo.** La decisión 1 recomienda verificación manual, y
+   el rol `admin` existe pero no tiene ninguna ruta. Hay que elegir entre una ruta de administración
+   con permiso propio o un comando de consola; nunca un `UPDATE` a mano en la base (decisión 11).
+8. **HU-31 con el motor determinista no da para mucho.** El motor de la Fase 3 tiene un banco fijo
+   por recruiter × nivel; PR1 pide «armar las preguntas con el puesto y los requisitos», y eso es
+   comprensión de lenguaje (Fase 4). `interview_sessions.job_offer_id` ya existe (nulo y sin FK, a la
+   espera de `job_offers`). Practicar una oferta además gasta la cuota del plan (Fase 3). Ver la
+   decisión 12.
+9. **La fase es grande**: trece pasos con los dos nuevos. Ver la decisión 13.
+
 ## Alcance
 
 **Dentro:**
@@ -65,7 +104,7 @@ con ofertas falsas ni inventadas**. Las primeras se cargan a mano con empresas r
 - Ofertas visibles para candidatos y aplicación con consentimiento.
 - Matching: puntaje y desglose por oferta (`job_matches`), recalculado cuando cambia el perfil o la oferta.
 - Registro de aplicaciones del candidato (las de la plataforma y, si se aprueba, las externas a mano).
-- Práctica de una oferta (HU-31) pasando `job_offer_id` a la sesión. ⚠
+- Práctica de una oferta (HU-31) pasando `job_offer_id` a la sesión, según la decisión 12.
 - Frontend del candidato (ofertas, aplicaciones) y del reclutador (panel).
 
 **Fuera (y por qué):**
@@ -95,30 +134,77 @@ Decisiones que `db.md` todavía no dice:
 - **`external_applications`** (si se aprueba la decisión 6): empresa, puesto, fecha, estado y notas,
   con la nota cifrada.
 
-Migraciones: `…_create_companies`, `…_create_job_offers`, `…_create_applications`,
-`…_create_matches` (cada una con `up` y `down`; `db.md` en el mismo PR).
+Agregado en la revisión del 2026-11-10:
+
+- **Catálogos de ofertas** (paso 1): `countries` → `states` → `cities` → `zones`, `salary_ranges`,
+  `working_shifts`, `contract_types`, `employment_sectors`, `driver_licenses` y `membership_types`,
+  ya diseñados en `db.md` («Catálogos»), con sus semillas.
+- **Roles** (paso 2): sin tablas nuevas. Una migración siembra el rol de reclutador (y el de admin de
+  empresa, si la decisión 7 lo pide) y sus permisos en `permissions` y `role_permissions`.
+- **`company_invitations`** (nueva): `company_id` · `email_hash` (HMAC, como `users.email_hash`) ·
+  `role` · `token_hash` · `expires_at` · `used_at` · `created_by`. El token nunca se guarda en claro.
+- **`access_audit`**: ya diseñada en `db.md`, sin migrar.
+- **`job_preferences`**: ya diseñada en `db.md`, sin migrar; solo si la decisión 14 la incluye.
+- **FK de `interview_sessions.job_offer_id` → `job_offers`**, con `ON DELETE SET NULL`, en la
+  migración de ofertas (así lo anota `db.md`).
+
+Migraciones: `…_create_offer_catalogs`, `…_seed_recruiter_roles`, `…_create_companies`,
+`…_create_job_offers`, `…_create_applications`, `…_create_access_audit`, `…_create_matches` (cada una
+con `up` y `down`; `db.md` en el mismo PR).
 
 ## Pasos
 
+Renumerados el 2026-11-10: los pasos 1 y 2 son nuevos y el antiguo paso 3 («control por rol») se
+repartió entre el paso 2 y los demás.
+
 - [ ] 0. **Este documento**: revisión del equipo y decisiones abiertas resueltas.
-- [ ] 1. Empresas, reclutadores, rol y membresía (migración + endpoints) (⇉ con 2)
-- [ ] 2. Ofertas y sus requisitos (migración + CRUD del reclutador) (⇉ con 1)
-- [ ] 3. Control por rol/permiso y aislamiento entre empresas
-- [ ] 4. Listado y detalle de ofertas para candidatos (incluye las confidenciales)
-- [ ] 5. Aplicar con consentimiento; ver mis aplicaciones; retirar
-- [ ] 6. Panel del reclutador: ver aplicaciones, mover estados, favoritos
-- [ ] 7. Matching: cálculo, desglose y recálculo
-- [ ] 8. Práctica de una oferta (HU-31) ⚠
-- [ ] 9. Borrado de cuenta ampliado (candidato y reclutador)
-- [ ] 10. Frontend del candidato
-- [ ] 11. Frontend del reclutador
-- [ ] 12. Recorrido en navegador con las dos caras y cierre
+- [ ] 1. Catálogos que usan las ofertas, con sus semillas (⇉ con 2)
+- [ ] 2. Roles y permisos: `Access::Permission` en la tabla de rutas, rol de reclutador con permisos
+      sembrados y roles en `GET /me` (⇉ con 1)
+- [ ] 3. Empresas, reclutadores, invitaciones y membresía (migración + endpoints) (⇉ con 4)
+- [ ] 4. Ofertas y sus requisitos (migración + CRUD del reclutador) (⇉ con 3)
+- [ ] 5. Listado y detalle de ofertas para candidatos (incluye las confidenciales)
+- [ ] 6. Aplicar con consentimiento; ver mis aplicaciones; retirar
+- [ ] 7. Panel del reclutador: ver aplicaciones, mover estados, favoritos y `access_audit`
+- [ ] 8. Matching: cálculo, desglose y recálculo
+- [ ] 9. Práctica de una oferta (HU-31), según la decisión 12
+- [ ] 10. Borrado de cuenta ampliado (candidato y reclutador)
+- [ ] 11. Frontend del candidato
+- [ ] 12. Frontend del reclutador
+- [ ] 13. Recorrido en navegador con las dos caras y cierre
 
 ## Casos de verdad
 
 > Borrador. Cada caso tiene que poder convertirse en un test.
 
-### Empresas y membresías (paso 1)
+### Catálogos de ofertas (paso 1, nuevo)
+
+| # | Caso | Tipo |
+|---|---|---|
+| CT1 | Correr las migraciones crea los catálogos de ofertas (`countries`, `states`, `cities`, `zones`, `salary_ranges`, `working_shifts`, `contract_types`, `employment_sectors`, `driver_licenses`, `membership_types`); `down` y `up` son reversibles | integración |
+| CT2 | `countries → states → cities → zones` forma una cadena con FK; una ciudad de un estado de otro país no se puede crear | integración |
+| CT3 | Las semillas cubren lo que decida la decisión 9, con `code` único por catálogo | integración |
+| CT4 | `GET /api/v1/catalogs/{nombre}` sirve los nuevos con el mismo formato y la misma protección que los de la Fase 2; un nombre fuera de la lista → 404 | integración |
+| CT5 | `salary_ranges` está en quetzales, ordenado, y los rangos no se solapan | unitaria |
+
+### Roles y permisos (paso 2, nuevo; antes «Roles y aislamiento», paso 3)
+
+| # | Caso | Tipo |
+|---|---|---|
+| RB1 | La tabla de rutas admite `Access::Permission("...")`; una ruta así exige token **y** el permiso, y sin el permiso responde 403 aunque el handler no lo compruebe | integración |
+| RB2 | Una migración siembra el rol de reclutador y sus permisos (`offer.manage`, `application.review`, …) y es reversible | integración |
+| RB3 | `GET /me` devuelve los roles de la persona (códigos, nunca ids de `role_permissions`) | integración |
+| RO1 | Un candidato que llama a una ruta de reclutador → 403 | integración |
+| RO2 | Un reclutador que llama a una ruta de candidato (mis CV, mi perfil) → 403. **Depende de la decisión 10**: si es la misma cuenta, el caso cambia | integración |
+| RO3 | Todas las rutas nuevas declaran su permiso en la tabla de rutas y un test falla si una no lo hace | integración |
+| RO4 | Quitar el rol de reclutador invalida su acceso en la siguiente petición, sin esperar al vencimiento del token | integración |
+| RO5 | Los permisos salen de `role_permissions`, no de comparar cadenas en los handlers | unitaria |
+| RO6 | Escalada: un reclutador no puede darse a sí mismo el rol admin | integración |
+
+El aislamiento entre empresas (OF8, PA1, PA7, SX2, SX6) se prueba en el paso de cada recurso, no en uno
+aparte.
+
+### Empresas y membresías (paso 3)
 
 | # | Caso | Tipo |
 |---|---|---|
@@ -126,14 +212,14 @@ Migraciones: `…_create_companies`, `…_create_job_offers`, `…_create_applic
 | EM2 | Una empresa no verificada no puede publicar ofertas → 403 `empresa_no_verificada` | integración |
 | EM3 | Un NIT/identificador repetido → 409; el mismo reclutador no puede crear dos empresas iguales | integración |
 | EM4 | Solo un admin de la empresa invita reclutadores; uno normal → 403 | integración |
-| EM5 | La invitación es de un solo uso, vence y nunca expone el token en claro tras guardarse (solo hash) | integración |
-| EM6 | Una membresía tiene `starts_at` y `expires_at`; vencida, la empresa no publica pero **conserva** lo ya publicado en borrador | integración |
+| EM5 | La invitación (`company_invitations`) es de un solo uso, vence y nunca expone el token en claro tras guardarse (solo hash) | integración |
+| EM6 | Una membresía tiene `start_date` y `expiration_date` (los nombres de `db.md`); vencida, la empresa no publica pero **conserva** lo ya publicado en borrador | integración |
 | EM7 | Las ofertas publicadas de una empresa con membresía vencida dejan de ser visibles y de aceptar aplicaciones | integración |
 | EM8 | Una persona puede ser candidato y reclutador a la vez; los dos perfiles no se mezclan en las respuestas | integración |
 | EM9 | `DELETE` de un reclutador no borra a la empresa ni sus ofertas; si era el único admin → 409 | integración |
 | EM10 | `companies` y `memberships` migran, son reversibles y el campo `verified_at` es nulo por defecto | integración |
 
-### Ofertas (paso 2)
+### Ofertas (paso 4)
 
 | # | Caso | Tipo |
 |---|---|---|
@@ -148,20 +234,9 @@ Migraciones: `…_create_companies`, `…_create_job_offers`, `…_create_applic
 | OF9 | Una oferta con `hiring_date` pasada se cierra sola | integración |
 | OF10 | El texto de la oferta se trata como no confiable: se escapa al mostrar y no se interpreta como HTML | unitaria |
 | OF11 | Un salario o rango fuera del catálogo → 422 | integración |
-| OF12 | El `salary_range_id` y los catálogos se leen de los catálogos de la Fase 2 | integración |
+| OF12 | El `salary_range_id` y los demás ids salen de los catálogos (los de la Fase 2 y los del paso 1); un id inactivo → 422, como en el perfil | integración |
 
-### Roles y aislamiento (paso 3)
-
-| # | Caso | Tipo |
-|---|---|---|
-| RO1 | Un candidato que llama a una ruta de reclutador → 403 | integración |
-| RO2 | Un reclutador que llama a una ruta de candidato (mis CV, mi perfil) → 403 | integración |
-| RO3 | Todas las rutas nuevas declaran su permiso en la tabla de rutas y un test falla si una no lo hace | integración |
-| RO4 | Quitar el rol de reclutador invalida su acceso en la siguiente petición, sin esperar al vencimiento del token | integración |
-| RO5 | Los permisos salen de `role_permissions`, no de comparar cadenas en los handlers | unitaria |
-| RO6 | Escalada: un reclutador no puede darse a sí mismo el rol admin | integración |
-
-### Ofertas para candidatos (paso 4)
+### Ofertas para candidatos (paso 5)
 
 | # | Caso | Tipo |
 |---|---|---|
@@ -173,7 +248,7 @@ Migraciones: `…_create_companies`, `…_create_job_offers`, `…_create_applic
 | CA6 | Paginación con límite máximo (50); `limit=1000` → 422 o se recorta | integración |
 | CA7 | El listado no hace N+1 consultas (se mide con el número de queries) | integración |
 
-### Aplicaciones (paso 5)
+### Aplicaciones (paso 6)
 
 | # | Caso | Tipo |
 |---|---|---|
@@ -188,7 +263,7 @@ Migraciones: `…_create_companies`, `…_create_job_offers`, `…_create_applic
 | AP9 | Aplicar a una oferta confidencial no revela la empresa hasta que el reclutador lo decida (decisión 3) | integración |
 | AP10 | Cada cambio de estado deja una fila en `job_application_events` con quién y cuándo | integración |
 
-### Panel del reclutador (paso 6)
+### Panel del reclutador (paso 7)
 
 | # | Caso | Tipo |
 |---|---|---|
@@ -203,7 +278,7 @@ Migraciones: `…_create_companies`, `…_create_job_offers`, `…_create_applic
 | PA9 | El reclutador no puede filtrar ni ordenar por edad, género, estado civil, nombre ni foto (parámetros → 422) | integración |
 | PA10 | Un candidato que borró su cuenta desaparece del panel y queda un registro anónimo del evento | integración |
 
-### Matching (paso 7)
+### Matching (paso 8)
 
 | # | Caso | Tipo |
 |---|---|---|
@@ -218,16 +293,18 @@ Migraciones: `…_create_companies`, `…_create_job_offers`, `…_create_applic
 | MA9 | El puntaje del candidato es visible para él; para el reclutador solo si el candidato lo comparte (decisión 4) | integración |
 | MA10 | Un perfil vacío da puntaje bajo con explicación, no error ni NaN | unitaria |
 
-### Práctica de una oferta (paso 8, ⚠ Fase 3)
+### Práctica de una oferta (paso 9, decisión 12)
 
 | # | Caso | Tipo |
 |---|---|---|
-| PR1 | `POST /interviews` con `job_offer_id` guarda la referencia y arma las preguntas con el puesto y los requisitos | integración |
+| PR1 | `POST /api/v1/interviews` acepta un `job_offer_id` opcional junto a `recruiter_id` y `level_id` y lo guarda en la sesión; **qué preguntas** arma depende de la decisión 12 | integración |
 | PR2 | El contexto de la sesión usa solo datos **públicos** de la oferta; una confidencial no revela la empresa | integración |
 | PR3 | Practicar una oferta no cuenta como aplicar ni la comparte con nadie | integración |
-| PR4 | Una oferta cerrada o borrador → 404 | integración |
+| PR4 | Una oferta cerrada, en borrador, inexistente o con id mal formado → 404, con el orden de validación del contrato de la Fase 3 (`api.md`) | integración |
+| PR5 | Practicar una oferta **gasta la cuota del plan** igual que cualquier sesión (Q1 de la Fase 3) y respeta «una sesión activa» | integración |
+| PR6 | El motor recibe del puesto solo título y requisitos, nunca datos de la empresa confidencial ni de la persona (X7 de la Fase 3) | unitaria |
 
-### Borrado (paso 9)
+### Borrado (paso 10)
 
 | # | Caso | Tipo |
 |---|---|---|
@@ -248,14 +325,14 @@ Migraciones: `…_create_companies`, `…_create_job_offers`, `…_create_applic
 | SX6 | La respuesta de un recurso de otra empresa es idéntica a la de uno inexistente (no revela existencia) | integración |
 | SX7 | Una oferta o descripción con script o HTML nunca se ejecuta en el frontend | componente |
 
-### Frontend (pasos 10 y 11)
+### Frontend (pasos 11 y 12)
 
 | # | Caso | Tipo |
 |---|---|---|
 | FC1 | `/offers` muestra las ofertas con su puntaje y el porqué; las confidenciales sin empresa | componente |
 | FC2 | Aplicar muestra **exactamente** qué se va a compartir con casillas, y sin marcar el consentimiento el botón está deshabilitado | componente |
 | FC3 | «Mis aplicaciones» muestra el estado y el historial; retirar pide confirmación | componente |
-| FC4 | Desde una oferta se puede «practicar esta entrevista» (⚠ Fase 3) | componente |
+| FC4 | Desde una oferta se puede «practicar esta entrevista» (si la decisión 12 la deja en esta fase) | componente |
 | FC5 | El panel del reclutador lista aplicaciones, cambia de estado con confirmación y marca favoritos | componente |
 | FC6 | Un candidato nunca ve rutas del panel y viceversa; los menús cambian según el rol | componente |
 | FC7 | Todo es operable con teclado, los errores se anuncian y los textos salen de `lib/messages/es.ts` | componente |
@@ -292,6 +369,30 @@ Migraciones: `…_create_companies`, `…_create_job_offers`, `…_create_applic
 7. **Roles de la empresa.** *Recomendado:* `admin` y `reclutador`, nada más al inicio.
 8. **Recalcular matching** al vuelo o en una tarea. *Recomendado:* en una tarea, con límite.
 
+Agregadas en la revisión contra el código del 2026-11-10:
+
+9. **Cuánta geografía se siembra.** *Recomendado:* solo Guatemala, con sus 22 departamentos y sus
+   municipios; `zones` vacía al inicio. Es donde están Luis y las primeras empresas. *Alternativa:*
+   texto libre para la ciudad, que deja el filtro por ciudad (CA2) sin índice.
+10. **¿Un reclutador es la misma cuenta que un candidato?** Hoy todo registro crea un `applicants`.
+    *Recomendado:* sí, la misma cuenta con dos roles. Es lo que supone EM8, y separar cuentas obliga a
+    tocar el registro y el login de la Fase 1. *Consecuencia:* RO2 cambia: un reclutador **sí** ve sus
+    propios CV y perfil, y lo que se prueba es que el panel nunca devuelve sus datos de candidato.
+11. **Quién verifica una empresa y cómo** (complementa la 1). *Recomendado:* una ruta de administración
+    con permiso propio (`company.verify`) para el rol `admin`, que deja rastro en `access_audit`.
+    *Alternativa:* un comando de consola en core-api, sin interfaz. Lo que **no**: un `UPDATE` a mano.
+12. **HU-31 (practicar una oferta) con el motor determinista.** *Recomendado:* aplazarla a la Fase 4,
+    donde el motor entiende el puesto, y dejar en esta fase solo la FK de `interview_sessions.job_offer_id`.
+    *Alternativa mínima:* guardar `job_offer_id` y agregar una pregunta por requisito obligatorio con una
+    plantilla («Cuéntame de una vez que usaste {skill}»); se nota mecánica, igual que el resto del motor.
+13. **¿Partir la fase?** *Recomendado:* sí. **5a** = pasos 1 a 7, 10 a 13 (empresas, ofertas,
+    aplicaciones, panel y las dos caras del frontend): ya cubre HU-32 y HU-50 a 56 y entrega algo usable.
+    **5b** = matching (paso 8) y HU-31 (paso 9). Así el matching se diseña con ofertas reales cargadas,
+    no con datos inventados.
+14. **¿El matching usa preferencias (`job_preferences`)?** *Recomendado:* no en esta fase; alcanza con
+    habilidades, idiomas, experiencia y nivel académico, que ya están en el perfil de la Fase 2. MA1
+    pierde «preferencias» hasta que exista una pantalla para cargarlas.
+
 ## Riesgos que se aceptan sabiendo que existen
 
 - **Un reclutador falso es la peor amenaza:** obtendría datos de candidatos. La verificación manual
@@ -303,4 +404,7 @@ Migraciones: `…_create_companies`, `…_create_job_offers`, `…_create_applic
 
 ## Desvíos y hallazgos
 
-_Vacío hasta que se empiece a implementar._
+- **2026-11-10, revisión contra `develop`** (`jb-54-fase5-revision`): se agregaron los pasos 1 y 2, los
+  casos CT1–CT5, RB1–RB3 y PR5–PR6, las tablas que faltaban en «Cambios de esquema» y las decisiones 9 a
+  14; se corrigieron EM6 (nombres de columna de `db.md`) y OF12 (los catálogos de la Fase 2 no
+  alcanzan). Ningún caso se borró. No hay código.
