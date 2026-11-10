@@ -178,3 +178,49 @@ Contrato en [api.md](api.md#entrevista-fase-3). Lo que la seguridad exige de él
 - **Texto como dato, nunca como instrucción:** lo que la persona escribe no cambia el score ni el
   comportamiento del motor (caso X8, que se repite con el motor de IA).
 - **El motor no recibe PII ni ids de persona**, solo el historial y la configuración del recruiter.
+
+## Ofertas, empresas y panel (Fase 5a)
+
+Contrato en [api.md](api.md#ofertas-y-empresas-fase-5a). Es la primera vez que los datos de una persona
+los ve otra: el modelo de amenazas de arriba no tenía esta fila.
+
+| Amenaza | Consecuencia | Mitigación |
+|---|---|---|
+| Reclutador falso | Datos de candidatos a un tercero | Empresa sin verificar no publica ni recibe aplicaciones; verificación manual por `company.verify` con fila en `access_audit`; `unverify` corta el acceso; límite de 120 detalles por hora; el admin de plataforma no lee aplicaciones |
+| Compartir de más | El reclutador ve lo que la persona no aceptó | Consentimiento explícito por aplicación, conjunto cerrado de campos, lo no marcado no viaja, CV y datos sensibles inexistentes en la API; test de que cada campo ausente no está en la respuesta |
+| Confidencial deanonimizada | La empresa se conoce antes de tiempo | `company` nulo en listado, detalle, errores y «mis aplicaciones» hasta `shortlisted`, por aplicación; sin filtro, orden ni búsqueda por empresa ni por texto |
+| Discriminación | Filtrar por edad, género, estado civil o nombre | Parámetros y campos cerrados: lo demás es 422 antes de tocar la base; tests que fallan si aparecen |
+| Acceso horizontal entre empresas | Una empresa lee aplicaciones o favoritos de otra | La empresa sale de la membresía, no del path; 404 idéntico para ajeno e inexistente |
+| Invitación robada | Un tercero entra a una empresa | Token de 256 bits, solo su hash en la base, un uso, 7 días, atada al correo de la invitación, 10 intentos por hora |
+| Escalada de rol | Un reclutador se vuelve admin | Los roles de empresa solo se dan al crear la empresa o aceptar una invitación; `admin` no se da por la API |
+
+**Huecos que esta fase encontró** (decididos en el contrato o aceptados y dichos):
+
+- **`married_last_name` y segundo apellido** son datos de estado civil: nunca salen en `display_name` ni
+  en ninguna respuesta al reclutador.
+- **El nombre ya delata género u origen.** `display_name` es obligatorio al aplicar (decisión 2), así que el
+  sesgo por nombre queda **abierto**: lo único que se impide es filtrar u ordenar por él. Evaluar una
+  revisión ciega (nombre visible desde `under_review`) antes de abrir al público.
+- **`tax_id` de una empresa puede ser el DPI/NIT de una persona** (un negocio individual): se cifra y se
+  busca por HMAC, como el correo. En `db.md` estaba en claro.
+- **El texto de una oferta confidencial puede nombrar a la empresa** y el servidor no lo puede detectar. Es
+  responsabilidad de quien publica; la UI lo avisa. Riesgo aceptado.
+- **Las notas del reclutador son texto libre** y pueden traer datos de la persona: se cifran
+  (`job_application_events.note`).
+- **Roles globales, pertenencia por empresa.** `user_roles` no sabe de empresas: un permiso sin fila en
+  `company_recruiters` no sirve (404). Hay que probarlo, no solo asumirlo.
+- **Ver en vivo, no copiar.** El panel lee el perfil de la persona filtrado por `shared_fields`; no hay
+  copia que purgar, y retirar o borrar cortan el acceso de inmediato. Contra: lo que la empresa vio ya
+  no se puede probar después (se prueba con `access_audit`, sin contenido).
+- **`access_audit` crece con cada vista** y, si falla el insert, la petición falla: es adrede (sin dato
+  sin rastro). Falta su particionado (ya anotado en `db.md`).
+- **El nombre de una empresa en un error o log** de una confidencial no debe salir nunca: los errores son
+  de texto fijo y el rastro de logs no lleva ids de empresa en rutas de candidato.
+- **No hay antiabuso de contenido**: nada impide publicar una oferta falsa o fraudulenta (cobrar por
+  aplicar, pedir datos extra). La verificación manual lo mitiga; falta un canal de denuncia.
+- **Rate limiting** de esta fase (SX5) sale de filas persistentes, no de memoria del proceso; el
+  de la entrevista sigue en «Pendiente».
+- **Sin empresa cerrable:** no hay ruta para cerrar una empresa ni para borrar al único `company_admin`;
+  hasta que exista, lo hace el equipo y queda a mano.
+- **Legal:** consentimiento y retención (90 días tras el cierre) necesitan revisión de un asesor antes del
+  primer usuario real, como pide el plan de la fase.
