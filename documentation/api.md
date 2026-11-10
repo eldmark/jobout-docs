@@ -552,6 +552,13 @@ formado) → **404 `no_encontrado` idéntico** (CA5).
   "driver_licenses": [ { } ] }
 ```
 
+- **Qué implementa el paso 5 (HU-30, sin matching).** Visible también exige que la `hiring_date` no
+  haya pasado (una oferta vencida por fecha se oculta aunque la tarea diaria aún no la cierre). Hasta
+  el paso 6 `my_application` es siempre `null` (no existen aplicaciones). Los criterios de orden que
+  no existen (`sort=name`, `company`, `age`...) son `parametro_no_permitido`; solo `sort=match`
+  (5b) o un `sort` vacío o repetido son `datos_invalidos`. El cursor es opaco y solo sirve para el
+  `sort` con el que se emitió (otro → 422 `datos_invalidos`). Mirar ofertas no escribe nada ni
+  tiene límite de lecturas propio: la tabla de «Tasas y límites» no lo prevé.
 - Orden fijo: `publication_date` descendente, con `id` de desempate. `sort` acepta solo `recent`
   (defecto) y `oldest`; `sort=match` es de la 5b y hoy → 422 `datos_invalidos`. Todos los filtros son
   ids de catálogo; cada uno puede venir una sola vez.
