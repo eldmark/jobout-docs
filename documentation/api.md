@@ -374,7 +374,7 @@ quetzales (`GTQ`).
   Cambiar el `name` de una verificada **no** quita la verificación (queda como riesgo aceptado).
 - `my_role` es `company_admin` o `recruiter`. `membership` es `null` si nunca tuvo; `status` es
   `active` o `expired` (calculado por fechas, no por la columna). `verified` es `verified_at != null`.
-- **Reclutadores**: `display_name` es nombre + primer apellido; **nunca** correo, teléfono, ni
+- **Reclutadores**: `display_name` es nombre + la inicial del apellido; **nunca** correo, teléfono, ni
   `married_last_name`. `DELETE /company/recruiters/{id}` (también uno mismo para salir): borra la fila
   `company_recruiters` (`deleted_at`), le quita los roles de empresa (efecto en la petición siguiente) y
   **no** toca a la empresa, sus ofertas ni el historial de decisiones. Si era el único `company_admin`
@@ -594,7 +594,7 @@ importante:
 
    | Nombre | Qué ve el reclutador | Obligatorio |
    |---|---|---|
-   | `display_name` | nombre y primer apellido | **sí** |
+   | `display_name` | nombre y la inicial del apellido ("Ana P.") | **sí** |
    | `skills` | skills con `level` y `years_of_experience` | **sí** |
    | `experience` | experiencias: empresa, cargo, fechas (sin la descripción) | **sí** |
    | `experience_descriptions` | la `description` de cada experiencia | no |
