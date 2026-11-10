@@ -700,8 +700,37 @@ mano), `academic_levels` (6), `professions` (12) y `job_hierarchies` (6). Las se
 `migration/src/seeds.rs`. `skills` lleva además `aliases text[] NOT NULL DEFAULT '{}'`
 (`js` → `javascript`, `postgres` → `postgresql`…), que el extractor usa para reconocerlas; los
 `code` son `[a-z0-9-]` sin mayúsculas ni tildes (`csharp`, `nodejs`). El catálogo es **cerrado**:
-la persona elige de la lista y no puede inventar una skill. Los demás catálogos siguen sin
-migrar.
+la persona elige de la lista y no puede inventar una skill.
+
+**Migrados en la Fase 5 (paso 1, `m20261110_000001_create_offer_catalogs`):** `countries`, `states`,
+`cities`, `zones`, `salary_ranges`, `working_shifts`, `contract_types`, `employment_sectors`,
+`driver_licenses` y `membership_types`, con la forma estándar y sus semillas en
+`migration/src/offer_seeds.rs`. Lo que `db.md` no decía y se decidió:
+
+- **Geografía.** Cada eslabón lleva la FK a su padre (`states.country_id`, `cities.state_id`,
+  `zones.city_id`), sin repetir el país en la ciudad: una ciudad no puede quedar en un país
+  distinto al de su estado porque no tiene dónde decirlo. El `name` es único **dentro del
+  padre** (`UNIQUE (padre_id, name)`, sin duplicados de texto libre), y el `code` es único en
+  toda la tabla. Hay varios «San José» o «Concepción», así que el `code` de un municipio lleva
+  el del departamento: `sacatepequez-antigua-guatemala`, `guatemala-guatemala`. Borrar un padre
+  con hijos falla (sin `ON DELETE CASCADE`).
+- **Solo se siembra Guatemala** (decisión 9 de la Fase 5): `gt`, sus **22 departamentos** y sus
+  **340 municipios**; `zones` queda **vacía**. El municipio de Guatemala (la capital) cuelga del
+  departamento de Guatemala.
+- **`salary_ranges`** agrega `currency char(3) NOT NULL DEFAULT 'GTQ'`, `min_amount` y
+  `max_amount` (`numeric(12,2)`, el máximo nulo en el último rango). Son montos **mensuales** en
+  quetzales, mínimo y máximo **inclusivos**, sin huecos ni solapes (una prueba lo verifica); un
+  `CHECK` impide un mínimo negativo o un máximo menor que el mínimo. Se siembran siete rangos,
+  de «Menos de Q3,000» a «Q35,000 o más».
+- **Semillas simples:** `working_shifts` (diurna, mixta, nocturna, rotativa, flexible, tiempo
+  parcial), `contract_types` (indefinido, plazo fijo, por servicios (freelance), pasantía, por
+  obra determinada), `employment_sectors` (18, de tecnología a «otro»), `driver_licenses`
+  (tipos A, B, C y M) y `membership_types`, con una sola fila: `business`, «Empresarial», con
+  el mismo `code` que el plan de `plans`. El precio y los beneficios de la membresía no viven en
+  el catálogo.
+
+Los demás catálogos (`document_types`, `genders`, `marital_statuses`, `employment_statuses`)
+siguen sin migrar.
 
 **Eliminado:** `gender_preferences` — su único uso era filtrar ofertas por género.
 
