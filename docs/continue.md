@@ -7,6 +7,26 @@ Entrada más reciente arriba. No borres entradas viejas: se van quedando como hi
 
 ---
 
+## 2026-11-10 (noche) — Recorrido en el navegador, hecho por un agente
+
+Contra el entorno local recién levantado desde `main` (`docker compose up --build`, migraciones aplicadas).
+**No reemplaza la pasada de una persona del equipo.** Cuenta de prueba local, borrada al final.
+
+- Portada → registro → dashboard («Tu plan: Gratis») ✅
+- Elegir recruiter y nivel: Startup bloqueado con el motivo; Amazon, Google y McKinsey «aún no disponible» ✅
+- Entrevista con Martín: respuesta vaga → repregunta; dos respuestas concretas → siguiente pregunta ✅
+- Pausar (con confirmación) → «Retoma tu entrevista» en el dashboard → Retomar sigue en la misma pregunta ✅
+- Terminar (con confirmación): score 61, claridad 96, el desglose suma 61, tres mejoras, sin confianza ✅
+- Progreso: Junior mejor score 61; Startup desbloqueado (61 ≥ 60) ✅
+- Lista («Mostrando 1 entrevista.») y transcripción ✅
+- Segunda entrevista en plan Gratis: «Ya usaste las entrevistas que incluye tu plan este mes. Se renueva el 1 de diciembre de 2026.» ✅
+- CV sintético DOCX: propuesta con 2 experiencias, 5 habilidades y 2 idiomas con su nivel → confirmar → perfil ✅; borrar el CV (con aviso) conserva el perfil ✅
+- Borrar la cuenta (pide la contraseña): `users`, `applicants`, `cvs`, sesiones, turnos, scores y progreso en 0; 1 fila en `privacy_events`; `usage_ledger` conserva 1 fila **sin** `user_id`; 0 archivos en el almacén; ninguna frase de las respuestas en los logs; `/interviews`, `/interviews/progress` y `/profile` sin sesión redirigen a `/sign-in` ✅
+- **Hallazgos nuevos:** BUG-004 (el «por qué» del score parece injusto con respuestas buenas) y BUG-005
+  (enlaces pegados en la lista).
+- **No cubierto:** descargar el CV (abre un archivo en el navegador), una persona real mirando la pantalla,
+  móvil y lector de pantalla.
+
 ## 2026-11-10 (tarde) — Fase 3 en `main` y bugs cerrados
 
 - `develop → main` mergeado en los tres repos (core-api #29, web #13, docs #22) con bypass de admin,
