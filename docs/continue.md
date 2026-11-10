@@ -47,7 +47,6 @@ Entrada más reciente arriba. No borres entradas viejas: se van quedando como hi
 
 **Pendiente heredado:** ramas sobrantes en `jobout-core-api` (`jb-05-pii-crypto`, `jb-07-password-jwt`,
 `jb-29-no-sql-values-in-logs`) y en `Job-out-interview` (`jb-01-service-docs`, `jb-36-develop-flow`);
-`jobout-web/package-lock.json` está en `.gitignore`, así que cada instalación resuelve versiones nuevas;
 OAuth aplazado; S3 antes de producción; costo real de la voz.
 
 ## 2026-11-09 — Fase 2 mergeada y repo de entrevista documentado

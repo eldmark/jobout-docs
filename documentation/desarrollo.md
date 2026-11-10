@@ -70,6 +70,13 @@ docker compose exec core-api cargo run -p migration -- up        # make migrate
 docker compose exec -e TEST_DATABASE_URL=postgres://jobout:jobout@postgres:5432/postgres core-api cargo test --workspace   # pruebas del backend
 ```
 
+**En Windows la recarga en caliente de `web` no se entera de los cambios**: Docker no le pasa al
+contenedor los avisos de archivos modificados y Next no tiene `WATCHPACK_POLLING`. El archivo sí
+cambia adentro, pero la página sigue sirviendo lo viejo hasta `docker compose restart web`.
+
+En `jobout-web`, instala con `npm ci`: `package-lock.json` está versionado (aunque figure en
+`.gitignore`) y `npm install` lo reescribe.
+
 Las pruebas del backend conviene correrlas **dentro del contenedor**: es Linux como el CI, y las
 pruebas de tiempo usan el reloj de CPU del hilo, que en otros sistemas cae al de pared. Compilar las
 pruebas ahí pide mucha memoria; no hagas el recorrido en el navegador mientras compilan.
