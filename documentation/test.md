@@ -68,6 +68,27 @@ cada vez. No se hace.
 - El cálculo de score se prueba **siempre** contra transcripciones fijas: dada esta
   conversación, este score. Si el número cambia sin que se haya tocado la rúbrica, hay un bug.
 
+### La entrevista de texto hoy (Fase 3)
+
+- **El motor es puro y determinista** (`src/interview/`): banco de preguntas, repreguntas y evaluación
+  se prueban sin base ni red en `tests/interview_engine.rs`. El mismo historial da siempre la misma
+  respuesta y el mismo score.
+- **Las rutas reciben el motor por `AppState.engine`**, igual que el almacén de archivos. Las pruebas
+  enchufan `ScriptedEngine` (devuelve lo que se le indica) o un motor que falla, para probar el 503 y
+  el «todo o nada» del turno.
+- **La concurrencia se prueba de verdad**, sin `sleep`: varias peticiones simultáneas contra
+  PostgreSQL real, y una compuerta en el motor que retiene al ganador hasta que los perdedores ya
+  recibieron su 409.
+- **Las pruebas de tiempo miden CPU, no reloj de pared** (`tests/timing/mod.rs`): el mínimo de varias
+  repeticiones del tiempo de CPU del hilo. En Linux (CI y Docker) usa `CLOCK_THREAD_CPUTIME_ID`; en
+  otros sistemas cae al reloj de pared y puede ser menos estable.
+- **La cuota**: las pruebas que crean muchas sesiones con la misma persona la apagan con
+  `ENFORCE_PLAN_LIMITS=false`; la cuota se prueba en `tests/interview_quota.rs`, y el interruptor en
+  `tests/interview_quota_off.rs`, en su propio binario porque cambia el entorno del proceso. El mes se
+  calcula con un reloj inyectado, así que la frontera de mes no espera ni duerme.
+- **Que el texto no llegue a los logs** se comprueba con una marca única en la respuesta y una captura
+  de logs, más una prueba de que la captura funciona (si no capturara nada, el test pasaría siempre).
+
 ## Pruebas obligatorias de seguridad
 
 Estas no son opcionales en ningún endpoint que toque datos de usuario:

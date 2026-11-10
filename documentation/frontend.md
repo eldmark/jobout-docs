@@ -2,8 +2,8 @@
 
 **Next.js.** Repo: `jobout-web`.
 
-> **Estado: Fase 1 hecha (ingreso, registro, dashboard y borrado de cuenta);
-> el resto por construir.** Este archivo tiene las decisiones y reglas ya tomadas. El detalle
+> **Estado: Fases 1 y 2 hechas (cuenta, perfil y CV) y la entrevista en modo texto de la Fase 3
+> en `develop`; la voz y el lado empresa, por construir.** Este archivo tiene las decisiones y reglas ya tomadas. El detalle
 > de rutas y componentes se llena con las fases correspondientes.
 
 ## Responsabilidad
@@ -102,3 +102,36 @@ perfil» mientras no haya CV ni skills.
   ofrece llenar el perfil a mano.
 - `route-guard.ts` deja pasar sin sesión `/api/cvs`, `/api/profile` y `/api/catalogs` hacia sus
   handlers, que responden 401 en JSON; así un `fetch` sin sesión no recibe el HTML de `/sign-in`.
+
+## Entrevista en modo texto (Fase 3)
+
+Páginas protegidas, todas con los textos en `lib/messages/es.ts` (tuteo):
+
+| Página | Qué hace |
+|---|---|
+| `/interviews` | Elegir recruiter (rol y personalidad) y nivel. Un nivel bloqueado o no disponible sale deshabilitado con el motivo. Si ya hay una sesión activa, ofrece retomarla |
+| `/interviews/[id]` | La conversación: turnos en orden, el último mensaje del recruiter anunciado con `aria-live`, enviar con el botón o Ctrl+Enter, pausar, retomar, abandonar y terminar. Al cerrar muestra el resultado |
+| `/interviews/[id]/transcript` | La transcripción de solo lectura de una sesión (HU-15) |
+| `/interviews/sessions` | Mis entrevistas, con «Cargar más» por cursor |
+| `/interviews/progress` | Los cinco niveles, cuáles están desbloqueados, el mejor score y la evolución (HU-22, HU-23) |
+
+El dashboard muestra «Practica una entrevista» y, si hay una sesión `in_progress` o `paused`,
+«Retoma tu entrevista».
+
+- La capa servidor (`app/api/recruiters`, `levels`, `progress`, `interviews/**`) reenvía a `core-api`
+  con el token de las cookies, igual que el perfil. `lib/interviews/server.ts` solo deja pasar los
+  códigos de error del contrato y dos campos de eco validados por formato (`session_id` UUID y
+  `renews_at` ISO 8601); cualquier otro campo del backend se descarta. `Retry-After` se reenvía solo
+  si son segundos enteros.
+- El texto del turno se recorta y se cuenta en caracteres Unicode (4000 como máximo). El textarea no
+  lleva `maxlength`, porque cuenta unidades UTF-16 y rechazaría texto válido.
+- `done: true` en un turno significa sesión ya `completed`: la interfaz pide `GET .../score` y muestra
+  score, claridad y el desglose criterio por criterio con «x / max», su «por qué» y las mejoras.
+  `confidence` no se muestra cuando es `null` (siempre, en modo texto).
+- La fecha de renovación de `limite_del_plan` se formatea en UTC: la cuota cuenta por mes UTC y en
+  Guatemala el día local sería el anterior.
+- Pausar, abandonar y borrar piden confirmación antes de llamar a la API. Los 403, 409, 422, 429 y 503
+  se explican en español, sin texto técnico; un 503 o un 429 dejan reintentar sin perder lo escrito.
+- `route-guard.ts` suma `/api/recruiters`, `/api/levels`, `/api/progress` y `/api/interviews` a las
+  carpetas que responden 401 en JSON por sí mismas.
+- Todavía no hay audio: la sala de voz, el WebSocket y el avatar son de la Fase 4.

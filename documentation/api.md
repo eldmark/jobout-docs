@@ -166,8 +166,10 @@ con zona. Los ids son UUID. Los formatos exactos quedan fijados por los tests de
 **Formas.**
 
 ```jsonc
-// Turn: lo del recruiter lleva kind question|follow_up|closing; lo de la persona, kind "answer".
+// Turn: speaker es "recruiter" | "applicant" (el enum interview_speaker de db.md).
+// Lo del recruiter lleva kind question|follow_up|closing; lo de la persona, kind "answer".
 { "seq": 2, "speaker": "recruiter", "kind": "follow_up", "text": "..." }
+{ "seq": 3, "speaker": "applicant", "kind": "answer", "text": "..." }
 
 // Interview (POST /interviews → 201, GET /interviews/{id} → 200)
 { "id": "uuid", "status": "in_progress",

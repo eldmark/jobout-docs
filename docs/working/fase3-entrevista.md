@@ -1,6 +1,7 @@
 # Fase 3 — La entrevista, en modo texto
 
-**Estado:** en curso (casos de verdad pendientes de revisión del equipo; **no hay código todavía**)
+**Estado:** en curso (pasos 1 a 11 implementados y mergeados en `develop`; faltan el recorrido de una
+persona, la entrevista con Luis y pasar `develop` a `main`)
 **Repos que toca:** jobout-core-api, jobout-web, jobout (documentación)
 **Abierta:** 2026-11-08
 
@@ -106,18 +107,34 @@ Cada paso es una rama `jb-##-slug` y un PR. Los marcados ⇉ no dependen entre s
 trabajar en paralelo.
 
 - [ ] 0. **Este documento**: el equipo revisa los casos de verdad y resuelve las decisiones abiertas.
-- [ ] 1. Migraciones del catálogo (recruiters, rúbricas, niveles) y sus semillas (⇉ con 2 y 3).
-- [ ] 2. Motor: interfaz `InterviewEngine`, motor determinista y motor guionado (⇉, sin base de datos).
-- [ ] 3. Frontend: la conversación, con el contrato simulado (⇉).
-- [ ] 4. Migración de sesiones, turnos, scores y progreso.
-- [ ] 5. `GET /recruiters`, `GET /levels` y `GET /progress`.
-- [ ] 6. Crear una sesión y leerla, listarlas, pausar, reanudar y abandonar.
-- [ ] 7. Turnos: enviar una respuesta y recibir la del recruiter, con repreguntas.
-- [ ] 8. Terminar, calcular el score con su desglose, y actualizar el progreso y los niveles.
-- [ ] 9. Cuota por plan y `usage_ledger` (si se aprueba).
-- [ ] 10. Borrar una sesión y borrado de cuenta ampliado a las entrevistas.
-- [ ] 11. Frontend: resultado, progreso y niveles.
-- [ ] 12. Recorrido en navegador y cierre.
+      *Las decisiones se adoptaron con la opción recomendada (ver «Decisiones tomadas al implementar»);
+      falta que el equipo las confirme.*
+- [x] 1. Migraciones del catálogo (recruiters, rúbricas, niveles) y sus semillas (⇉ con 2 y 3).
+      *(core-api `jb-37-interview-catalog` #19; docs `jb-37-db-interview-catalog` #15)*
+- [x] 2. Motor: interfaz `InterviewEngine`, motor determinista y motor guionado (⇉, sin base de datos).
+      *(core-api `jb-38-interview-engine` #20)*
+- [x] 3. Frontend: la conversación, con el contrato simulado (⇉). *(web `jb-39-interview-ui` #7 y
+      `jb-40-fix-start-test-leak` #8)*
+- [x] 4. Migración de sesiones, turnos, scores y progreso. *(core-api `jb-41-interview-schema` #21;
+      docs `jb-41-db-interview-schema` #17)*
+- [x] 5. `GET /recruiters`, `GET /levels` y `GET /progress`. *(core-api `jb-44-interview-catalog-routes` #22)*
+- [x] 6. Crear una sesión y leerla, listarlas, pausar, reanudar y abandonar. *(core-api
+      `jb-45-interview-sessions` #23, que también trae `DELETE /interviews/{id}` y la limpieza de 7 días)*
+- [x] 7. Turnos: enviar una respuesta y recibir la del recruiter, con repreguntas. *(core-api
+      `jb-47-interview-turns` #25)*
+- [x] 8. Terminar, calcular el score con su desglose, y actualizar el progreso y los niveles. *(core-api
+      `jb-49-interview-finish` #27)*
+- [x] 9. Cuota por plan y `usage_ledger` (si se aprueba). *(core-api `jb-48-interview-quota-deletion` #26;
+      docs `jb-48-db-quota` #18)*
+- [x] 10. Borrar una sesión y borrado de cuenta ampliado a las entrevistas. *(borrar una sesión en #23;
+      borrado de cuenta en #26)*
+- [x] 11. Frontend: resultado, progreso y niveles. *(web `jb-39-interview-ui` #7 y
+      `jb-43-interview-contract-align` #9)*
+- [ ] 12. Recorrido en navegador y cierre. *(`jb-50-fase3-cierre`: recorrido de un agente contra el
+      backend real; falta la pasada de una persona y la entrevista con Luis)*
+
+Fuera de la lista: el contrato HTTP (docs `jb-42-interview-api-contract` #16) y las pruebas de tiempo
+deterministas (core-api `jb-46-deflake-timing` #24).
 
 ## Casos de verdad
 
@@ -345,6 +362,23 @@ trabajar en paralelo.
 9. **Retención.** La transcripción vive hasta que la persona borra la sesión o la cuenta. *Pendiente de
    decidir:* si se ofrece borrar solo la transcripción conservando el score.
 
+## Decisiones tomadas al implementar
+
+Las nueve decisiones se implementaron con la opción recomendada. **El equipo no las revisó antes**:
+quedan anotadas para que las confirme o las cambie.
+
+| # | Decisión | Lo que quedó en el código |
+|---|---|---|
+| 1 | Motor | `InterviewEngine` con motor determinista por defecto (`interview::default_engine`) y `ScriptedEngine` para pruebas |
+| 2 | Idioma | Ana, Martín, Laura y Carlos en español; Sofía en inglés (semillas y bancos propios) |
+| 3 | Longitud | 6 o 7 preguntas principales por banco (64 en 10 bancos: recruiter × Junior/Startup), hasta 2 repreguntas por pregunta (`MAX_FOLLOW_UPS`), tope de 40 turnos |
+| 4 | Transcripción cifrada | Sí: `interview_turns.transcript` es `bytea` cifrado; se descifra solo al leer |
+| 5 | Cuota por plan | Activa por defecto (Gratis 1, Estudiantil 10, Estándar 12 al mes, de `plans.monthly_simulations`); `ENFORCE_PLAN_LIMITS=false` la apaga |
+| 6 | Puntajes de desbloqueo | Startup 60, Amazon 70, Google 75, McKinsey 80; solo Junior y Startup están `available` |
+| 7 | Una sesión activa | Sí, con índice único parcial sobre `in_progress`/`paused` |
+| 8 | `confidence` | Siempre `null` en modo texto; la interfaz no la muestra |
+| 9 | Retención | La transcripción vive hasta borrar la sesión o la cuenta. **Sigue abierto** si se ofrece borrar solo la transcripción |
+
 ## Riesgos que se aceptan sabiendo que existen
 
 - **Un recruiter determinista se nota.** Con un banco de 6 a 10 preguntas por recruiter, a la tercera
@@ -357,6 +391,53 @@ trabajar en paralelo.
 - **La cuota por plan toca el negocio.** Si se aplica y los precios cambian, hay que cambiarla.
 
 ## Desvíos y hallazgos
+
+### Recorrido de punta a punta (2026-11-10, `jb-50-fase3-cierre`)
+
+Hecho por un agente, en el navegador integrado, contra el backend real (`develop` de los tres repos,
+`docker compose`, base recién migrada, cuota **activa**). **No reemplaza la pasada de una persona**: el
+panel del navegador estaba oculto, así que se leyó el DOM y no hubo capturas; falta mirar la pantalla.
+
+Pruebas antes del recorrido: `cargo test --workspace --no-fail-fast` dentro del contenedor, 39 binarios
+y **533 pruebas en verde**; `jobout-web`: 28 archivos y **505 pruebas en verde**, `tsc` y `eslint`
+limpios.
+
+| Paso | Casos | Resultado |
+|---|---|---|
+| Registro → dashboard con «Tu plan: Gratis» y «Practica una entrevista» | F16 | ✅ |
+| Elegir recruiter y nivel: los cinco con rol y personalidad; Startup bloqueado con el motivo, los otros tres «aún no disponible» | F2, R4, R5 | ✅ |
+| Doble clic en «Empezar entrevista» | F3, S1, S6 | ✅ una sola sesión, un turno y una fila de `usage_ledger` |
+| La transcripción guardada en la base | E7, T2 | ✅ bytes cifrados, no texto |
+| Respuesta vaga → repregunta de Ana; respuesta concreta (situación, acción, resultado, cifras) → siguiente pregunta | M5, M6, T3 | ✅ |
+| Enviar con Ctrl+Enter; el campo se vacía; el último mensaje se anuncia con `aria-live` | F4, F5 | ✅ |
+| Enviar vacío | F6 | ✅ no llama a la API, explica el motivo, `aria-invalid` y foco en el campo |
+| Pausar (pide confirmación) → dashboard ofrece «Retoma tu entrevista» | F8, S9, F16 | ✅ |
+| Empezar otra con una pausada | S5 | ✅ «Ya tienes una entrevista en curso…» con enlace a la activa |
+| Retomar | S10, S11 | ✅ vuelve a la misma pregunta, sin repetir ni saltar |
+| Terminar (pide confirmación) con 3 respuestas | C1, F9, F10 | ✅ score 64, claridad 85; el desglose suma exacto 64; tres mejoras; la confianza no aparece |
+| Progreso | C8, C11, F11 | ✅ Junior mejor score 64; Startup desbloqueado; Amazon sigue no disponible |
+| Transcripción y lista de entrevistas | HU-15, S7 | ✅ (ver BUG-002) |
+| Segunda entrevista del mes en plan Gratis | Q1, F13 | ✅ «Ya usaste las entrevistas que incluye tu plan este mes. Se renueva el 1 de diciembre de 2026.» y no se crea nada |
+| Buscar frases de las respuestas en los logs de `core-api` (`RUST_LOG=debug`) y de `web` | T11, X4 | ✅ ninguna |
+
+**Hallazgos**
+
+- **BUG-001 (Alta, Fase 1):** el registro enviado antes de hidratar viaja por GET con la contraseña en la
+  URL y queda en el log de Next. Ver `docs/bugs.md`. Se arregla en su propia rama.
+- **BUG-002 (Baja):** «Mostrando 1 entrevistas.»
+- **El evaluador se nota determinista**, como ya decía «Riesgos»: con una respuesta que dice
+  explícitamente «la situación era…», «yo propuse…» y «como resultado…», el criterio «Estructura»
+  dio 5/15 con el texto «No se distingue la situación, lo que hiciste ni el resultado», y una mejora
+  pide «añade cifras» cuando sí las había. Probablemente promedia todas las respuestas (una era vaga a
+  propósito), pero el «por qué» se lee como si no hubiera ninguna. Es material para la sesión con Luis
+  y para la Fase 4, no un bug del contrato.
+- **Terminar a mitad deja la última pregunta del recruiter sin responder** en la transcripción, sin
+  mensaje de cierre. Cumple el contrato; anotarlo por si el equipo prefiere un cierre.
+- **Entorno:** `make dev` no migra (la API arranca con la base vacía); un PostgreSQL nativo en el 5432
+  no lo detecta `make ports`; compilar las pruebas en el contenedor mientras se navega dejó a Next sin
+  memoria (conexiones reiniciadas). Quedó escrito en `documentation/desarrollo.md`.
+
+### Antes de este recorrido
 
 - **Contrato HTTP fijado (JB-42).** Está en `documentation/api.md`, sección «Entrevista (Fase 3)».
   Se conciliaron los casos de verdad con el contrato supuesto por `jobout-web`.
