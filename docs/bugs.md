@@ -17,9 +17,7 @@ treinta filas, el problema no es el archivo.
 
 | ID | Sev | Repo | Síntoma | Repro | Notas |
 |---|---|---|---|---|---|
-| BUG-001 | Alta | jobout-web | Si se envía el registro o el ingreso antes de que la página termine de cargar el JavaScript, la URL queda como `/sign-up?...&email=...&password=...`: la contraseña y el correo quedan en el historial del navegador y en el log del servidor de Next | Primera carga de `/sign-up` en `next dev` (compila varios segundos), llenar el formulario y pulsar «Crear cuenta» enseguida. Visto el 2026-11-10 en el recorrido de la Fase 3, con una cuenta de prueba local | `AuthForm.tsx` usa `<form onSubmit>` sin `method`: antes de hidratar, el navegador hace el envío nativo por GET. Arreglo propuesto: `method="post"` y el botón deshabilitado hasta hidratar, con una prueba que lo fije. Sería Crítica con usuarios reales; todavía no hay producción |
-| BUG-002 | Baja | jobout-web | `/interviews/sessions` dice «Mostrando 1 entrevistas.» | Terminar una entrevista y abrir «Ver mis entrevistas» con una sola sesión. Visto el 2026-11-10 | El texto no distingue singular de plural |
-| BUG-003 | Baja | jobout-core-api | `cargo clippy --all-targets --all-features -- -D warnings` falla dentro del contenedor de desarrollo (`clippy::search_is_some` en `tests/cvs.rs:347`), mientras el mismo comando pasa en el CI | `docker compose exec core-api cargo clippy --all-targets --all-features -- -D warnings` en `develop` (2026-11-10) | El contenedor usa Rust 1.90 (`Dockerfile`, `rust-version = "1.88"`) y el CI `dtolnay/rust-toolchain@stable` (1.99.1 ese día): lo que valida uno no lo valida el otro. Arreglo propuesto: fijar una versión en los dos (`rust-toolchain.toml`) y usar `!…contains(…)` en esa línea |
+| — | — | — | Ninguno abierto | — | — |
 
 ## Cómo se anota uno
 
