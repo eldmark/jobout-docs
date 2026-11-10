@@ -474,7 +474,6 @@ Migración `m20261110_000003_create_job_offers` (Fase 5a, paso 4). Contrato en
 | `publication_date` | date | null. La pone el servidor en la **primera** publicación y no cambia |
 | `closed_at` | timestamptz | null. Se fija al cerrar (a mano o por la tarea de `hiring_date`) y es la base de la retención de 90 días. `CHECK ((status = 'closed') = (closed_at IS NOT NULL))` |
 | `profession_id` · `employment_sector_id` · `job_hierarchy_id` · `minimum_academic_level_id` · `state_id` · `city_id` · `salary_range_id` · `working_shift_id` · `contract_type_id` | uuid | null, FK a catálogos. La API exige que estén activos y que `city_id` sea de `state_id` |
-| `applications_count` | int | NOT NULL, por defecto 0. **Transitorio**: `job_applications` aún no existe (paso 6), que lo sustituirá por la cuenta real y borrará la columna. Mientras tanto permite probar el congelamiento de la oferta tras la primera aplicación |
 | `created_at` · `updated_at` | timestamptz | NOT NULL, por defecto `now()` |
 
 Índices: `(company_id, created_at DESC, id DESC)` y `(company_id, status, created_at DESC, id DESC)`
@@ -512,23 +511,67 @@ Misma razón que en el perfil: sin esto no hay matching indexable.
 
 ### `job_applications`
 
+Migración `m20261110_000004_create_applications` (Fase 5a, paso 6). Contrato en
+[api.md](api.md), «Aplicar, ver y retirar (candidato)».
+
 > Era `Job_Applicant`. El original tenía `selected`, `reviewed` y `rejected` como tres
 > booleanos con su timestamp cada uno, lo que permite estados imposibles: `selected = true` y
 > `rejected = true` a la vez. Un solo estado y un historial.
 
 | Columna | Tipo | Notas |
 |---|---|---|
-| `applicant_id` · `job_offer_id` | uuid | FK. Unique compuesto: no se aplica dos veces |
-| `status` | enum | `applied` · `under_review` · `shortlisted` · `rejected` · `withdrawn` · `hired` |
-| `applied_at` | timestamptz | |
-| `status_changed_at` | timestamptz | |
+| `id` | uuid v7 | PK |
+| `applicant_id` | uuid | **null**, FK → `applicants`, **`ON DELETE SET NULL`**: borrar la cuenta no borra la aplicación; queda como «candidato eliminado» (BO1, PA10) |
+| `job_offer_id` | uuid | NOT NULL, FK → `job_offers` (sin cascada: una oferta con aplicaciones no se borra) |
+| `status` | enum `job_application_status` | `applied` · `under_review` · `shortlisted` · `rejected` · `withdrawn` · `hired`. Por defecto `applied` |
+| `shared_fields` | jsonb | NOT NULL, por defecto `[]`. Lista de **nombres** de campo que la persona aceptó compartir (conjunto cerrado de nueve, ver el contrato), nunca valores: el panel lee el perfil vivo filtrado por ellos. `CHECK` de que es un arreglo |
+| `consented_at` | timestamptz | NOT NULL, por defecto `now()`: lo fija el servidor |
+| `company_revealed_at` | timestamptz | null. Se fija al pasar a `shortlisted` una oferta confidencial; no se borra después (revelación por aplicación, HU-55) |
+| `applied_at` · `status_changed_at` | timestamptz | NOT NULL, por defecto `now()` |
 
-`job_application_events` — `job_application_id` FK · `from_status` · `to_status` ·
-`changed_by` (uuid, null si fue el sistema) · `note (text, null)` · `created_at`.
+- `UNIQUE (applicant_id, job_offer_id)`: una sola aplicación por oferta, para siempre (retirar o ser
+  rechazada no la libera). Las filas anónimas (`applicant_id` nulo) no chocan entre sí.
+- `CHECK (applicant_id IS NOT NULL OR shared_fields = '[]')` y el trigger `BEFORE UPDATE OF
+  applicant_id` (`job_applications_anonymize_trg`): al perder a la persona, `shared_fields` pasa a `[]`
+  en el mismo `UPDATE` de la FK. No queda ningún dato de ella.
+- Índices: `(applicant_id, applied_at DESC, id DESC)` parcial donde no es nulo («mis aplicaciones» y el
+  límite de 20 en 24 h, que se cuenta sobre estas filas) y `(job_offer_id, applied_at DESC, id DESC)`
+  (panel y la cuenta de la oferta).
+- La columna transitoria `job_offers.applications_count` **se elimina**: la cuenta sale de esta tabla.
+  `down` la devuelve con la cuenta real.
 
-Acá vive el rastro completo de quién revisó, quién seleccionó y quién rechazó — los
-`reviewed_by`, `selected_by` y `rejected_by` del diagrama original, ahora con historial y no
-solo el último.
+`job_application_events` — rastro de cada transición.
+
+| Columna | Tipo | Notas |
+|---|---|---|
+| `id` | uuid v7 | PK |
+| `job_application_id` | uuid | NOT NULL, FK, `ON DELETE CASCADE` |
+| `from_status` | enum | null en el primer evento (`null → applied`) |
+| `to_status` | enum | NOT NULL |
+| `changed_by` | uuid | **null**, FK → `users`, `ON DELETE SET NULL`: borrar la cuenta (de la persona o de quien decidió) deja el evento sin su id (BO2, BO3) |
+| `note` | bytea | null. **Cifrada** (el reclutador puede escribir cualquier cosa); solo la ven los reclutadores de la empresa |
+| `created_at` | timestamptz | NOT NULL |
+
+Índice `(job_application_id, created_at, id)`. Acá vive el rastro completo de quién revisó, quién
+seleccionó y quién rechazó — los `reviewed_by`, `selected_by` y `rejected_by` del diagrama original,
+ahora con historial y no solo el último. La persona solo ve `{status, at}`.
+
+### `external_applications`
+
+Aplicaciones hechas fuera de la plataforma (HU-32). **Privada de la persona**: no se comparte con
+ninguna empresa ni pasa por la máquina de estados.
+
+| Columna | Tipo | Notas |
+|---|---|---|
+| `id` | uuid v7 | PK |
+| `applicant_id` | uuid | NOT NULL, FK → `applicants`, **`ON DELETE CASCADE`**: borrar la cuenta borra el registro |
+| `company_name` · `position` | varchar(120) | NOT NULL |
+| `applied_on` | date | NOT NULL |
+| `status` | varchar | NOT NULL, `CHECK` en `applied` · `interviewing` · `offer` · `rejected` · `withdrawn` · `accepted` |
+| `notes` | bytea | null. **Cifrada** |
+| `created_at` · `updated_at` | timestamptz | NOT NULL |
+
+Índice `(applicant_id, applied_on DESC, id DESC)`. El tope de 200 por persona lo aplica la API.
 
 ### `job_matches`
 
