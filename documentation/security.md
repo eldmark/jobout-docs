@@ -69,6 +69,16 @@ Reglas:
 - **Toda ruta nueva nace autenticada.** Si tiene que ser pública, va un comentario que
   justifique por qué. Una ruta pública sin justificación es un bug.
 - Los permisos se comprueban por su literal, nunca por nombre de ruta.
+- **Una ruta que exige un permiso lo declara en la tabla** (`Access::Permission("offer.create")`),
+  no en el handler. El permiso sale de `user_roles` → `role_permissions` en la **misma consulta de la
+  cuenta** que ya hace cada petición, sin caché: quitar un rol corta el acceso en la siguiente
+  petición, sin esperar a que venza el JWT. Sin token, 401; cuenta suspendida, 403
+  `cuenta_no_disponible`; sin el permiso, 403 `sin_permiso`. El cuerpo es el mismo para todo permiso
+  faltante y **no dice cuál** (ni si existe). Un test falla si una ruta que exige permiso se declara
+  solo `Authenticated`.
+- **Escalada (RO6): ningún endpoint que dé roles puede ser solo `Authenticated`.** Hoy no existe
+  ninguno. Los que lleguen exigen `company.invite` (roles de empresa) o `company.verify`
+  (verificación de empresas) y nunca dan `admin`.
 - **Si un listado filtra filas por dueño, cada acción por id filtra igual.** La falla clásica
   es el listado correcto y el `GET /recurso/{id}` que devuelve el de cualquiera.
 - Nada de parámetros de ruta interpolados en SQL.
