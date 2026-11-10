@@ -170,8 +170,21 @@ vencidas se pisan solas al próximo fallo; limpiarlas en lote queda pendiente.
 `role_id`) tienen **PK compuesta**, FK con `ON DELETE CASCADE` y `assigned_date timestamptz`
 (el `date (string)` original pasa a `timestamptz`).
 
-La migración siembra los roles `applicant` (Candidato) y `admin` (Administrador). Los permisos
-se agrupan **por rol**, no por área ni feature.
+La migración de identidad siembra los roles `applicant` (Candidato) y `admin` (Administrador). La
+migración `m20261108_000004_seed_recruiter_roles` (Fase 5, paso 2) agrega los roles `company_admin` y
+`recruiter` y los diez permisos, **buscando todo por `code`** (los ids son UUID v7 generados al
+sembrar, no se escriben a mano en ningún lado). Los permisos se agrupan **por rol**, no por área ni
+feature:
+
+| Rol | Permisos sembrados |
+|---|---|
+| `applicant` | ninguno |
+| `recruiter` | `offer.create` · `offer.update` · `offer.publish` · `offer.close` · `application.read` · `application.review` · `favorite.manage` |
+| `company_admin` | los de `recruiter` + `company.update` · `company.invite` |
+| `admin` | `company.verify` (solo la plataforma; ningún rol de empresa lo recibe) |
+
+`down` borra esos dos roles y esos diez permisos (sus filas de `role_permissions` y `user_roles` caen
+en cascada) y no toca `applicant` ni `admin`. Un rol o permiso con `deleted_at` no concede nada.
 
 Los permisos se comprueban **por su literal**, nunca por nombre de ruta. Ver
 [security.md](security.md).

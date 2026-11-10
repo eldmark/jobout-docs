@@ -90,7 +90,7 @@ Cuerpo máximo 8 KB (413 si se excede). Nada de lo que entra o sale se escribe e
 | `POST /auth/login` | pública | `{email, password}` → 200 mismos tokens · 401 `credenciales_invalidas` (igual para «no existe» y «clave incorrecta») · 403 `cuenta_no_disponible` (suspendido) · 429 `demasiados_intentos` (5 fallos en 15 min por email) |
 | `POST /auth/refresh` | pública (el access puede haber expirado) | `{refresh_token}` → 200 tokens nuevos; el anterior queda revocado · 401 `sesion_invalida` para token desconocido, expirado, vacío o **reutilizado**; reusar uno rotado revoca todas las sesiones del usuario · 403 suspendido |
 | `POST /auth/logout` | pública | `{refresh_token}` → 204, idempotente; solo revoca esa sesión |
-| `GET /me` | Bearer | → 200 `{id, first_name, last_name, status, email, plan: {code, name} \| null}`. Nunca devuelve `email_hash`, hash de contraseña ni `clerk_user_id` |
+| `GET /me` | Bearer | → 200 `{id, first_name, last_name, status, email, plan: {code, name} \| null, roles: [string], permissions: [string]}`. `roles` y `permissions` son **códigos** (sin ids), sin repetir y en orden alfabético, vigentes en esa petición (quitar un rol se ve en la siguiente); un candidato recién registrado trae `["applicant"]` y `[]`. Sirven para elegir menús, no para autorizar. Nunca devuelve `email_hash`, hash de contraseña ni `clerk_user_id` |
 | `DELETE /me` | Bearer | `{password}` → 204 · 403 `contrasena_incorrecta` (suma al contador de intentos; con bloqueo activo, 429) · 401 si la cuenta ya no existe · 422 sin contraseña |
 
 `DELETE /me` es **borrado real** (HU-05): en una transacción deja una fila en `privacy_events`
