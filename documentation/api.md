@@ -352,7 +352,7 @@ quetzales (`GTQ`).
 { "id": "uuid", "name": "Café Nuevo S.A.", "tax_id": "1234567-8", "website": "...", "phone": "...",
   "description": "...", "country_id": "uuid", "employment_sector_id": "uuid",
   "verified": false, "verified_at": null,
-  "membership": null,   // o {"type": "enterprise", "start_date": "2026-11-01", "expiration_date": "2027-11-01", "status": "active"}
+  "membership": null,   // o {"type": "business", "start_date": "2026-11-01", "expiration_date": "2027-11-01", "status": "active"}
   "my_role": "company_admin", "created_at": "..." }
 
 // Invitation (POST → 201 con token; GET → sin token)
@@ -385,8 +385,11 @@ quetzales (`GTQ`).
   admin se lo pasa a la persona) y en la base solo queda su SHA-256 (`token_hash`). Vigencia **7 días**.
   **Un solo uso**: aceptar marca `used_at` con un `UPDATE ... WHERE used_at IS NULL AND expires_at >
   now()`, así dos aceptaciones simultáneas dejan una. Revocar la deja inservible. Máximo 20
-  invitaciones por empresa y día y 50 pendientes (429/422); invitar a un correo que ya es de otra
-  empresa responde igual que a uno nuevo (no revela cuentas): la 409 sale solo al aceptar.
+  invitaciones por empresa y día (429, cuentan también las revocadas) y 50 pendientes (422
+  `datos_invalidos`, que se comprueba antes); invitar a un correo que ya es de otra empresa responde
+  igual que a uno nuevo (no revela cuentas): la 409 sale solo al aceptar. El 409 `ya_tiene_empresa` al
+  invitar es solo para un correo que ya es de **la misma** empresa de quien invita. Una invitación ya
+  usada o revocada no se revoca (404).
 - `POST /invitations/accept`, orden: cuerpo (422) → límite (429: 10 intentos por persona y hora) →
   token desconocido, vencido, usado, revocado **o de otro correo** → 404 `invitacion_invalida`
   (misma respuesta en los cinco casos) → la persona ya tiene empresa → 409 `ya_tiene_empresa`.
@@ -405,7 +408,7 @@ documento fuera de la API y se marca aquí. **Nunca un `UPDATE` a mano.**
 | `GET /admin/companies` | `?verified=true\|false&limit&cursor` → 200 `{items: [{id, name, tax_id, website, created_at, verified_at, creator_email_domain, recruiters_count}], next_cursor}` (más antiguas primero) |
 | `POST /admin/companies/{id}/verify` | → 204, idempotente · 404 · 403 `sin_permiso` si el admin es miembro de esa empresa |
 | `POST /admin/companies/{id}/unverify` | → 204, idempotente · 404 |
-| `PUT /admin/companies/{id}/membership` | `{membership_type: "enterprise", start_date, expiration_date}` → 204 · 404 · 422 |
+| `PUT /admin/companies/{id}/membership` | `{membership_type: "business", start_date, expiration_date}` → 204 · 404 · 422 |
 
 - `creator_email_domain` es solo lo que va tras la `@` del correo de quien creó la empresa (para
   contrastarlo con el sitio); nunca el correo completo. La lista y cada acción dejan **una fila en
@@ -416,7 +419,7 @@ documento fuera de la API y se marca aquí. **Nunca un `UPDATE` a mano.**
 - `unverify` limpia `verified_at`: sus ofertas publicadas dejan de ser visibles y de aceptar
   aplicaciones (igual que EM7) y el panel responde 403 `empresa_no_verificada`; los borradores se
   conservan. Es la salida si se descubre un reclutador falso.
-- **Membresía:** `membership_type` es el `code` de `membership_types` (solo `enterprise` en la 5a; no hay
+- **Membresía:** `membership_type` es el `code` de `membership_types` (solo `business` en la 5a, el `code` que sembró el paso 1; no hay
   cobro). `PUT` **reemplaza** la vigente (la anterior queda `cancelled`). `expiration_date` ≥
   `start_date` y a lo sumo 400 días después; fuera de eso → 422 `datos_invalidos`. Verificar no crea
   membresía: una empresa verificada sin membresía vigente no publica.
