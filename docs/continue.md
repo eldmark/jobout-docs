@@ -7,6 +7,16 @@ Entrada más reciente arriba. No borres entradas viejas: se van quedando como hi
 
 ---
 
+## 2026-11-10 (tarde) — Fase 3 en `main` y bugs cerrados
+
+- `develop → main` mergeado en los tres repos (core-api #29, web #13, docs #22) con bypass de admin,
+  autorizado por el usuario, con el CI verde en los PR.
+- **Bugs cerrados**, verificados en el código de `main`: BUG-001 (formularios por POST,
+  `AuthForm.tsx`; web #10), BUG-002 (singular «Mostrando 1 entrevista.»; web #11) y BUG-003 (el CI usa
+  la versión de Rust de la imagen, 1.90; core-api #28).
+- **Cuidado:** los repos tienen «borrar la rama al mergear» activado y el PR `develop → main` **borró
+  `develop`**. Se recreó desde `main`. Hay que desactivar esa opción o proteger `develop`.
+
 ## 2026-11-10 — Fase 3 en `develop` y recorrida; el cierre depende de personas
 
 **Qué se hizo**
