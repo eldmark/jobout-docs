@@ -358,4 +358,21 @@ trabajar en paralelo.
 
 ## Desvíos y hallazgos
 
-_Vacío hasta que se empiece a implementar._
+- **Contrato HTTP fijado (JB-42).** Está en `documentation/api.md`, sección «Entrevista (Fase 3)».
+  Se conciliaron los casos de verdad con el contrato supuesto por `jobout-web`.
+- **Plan vs. contrato, S4:** el plan dice «ids mal formados → 404». Vale para ids en el path; para
+  `recruiter_id`/`level_id` en el **cuerpo** el contrato dice 422 `datos_invalidos` (como ya hace el
+  frontend), 404 solo si son UUID válidos que no existen.
+- **Plan, T1/T8:** `done: true` ya implica sesión `completed` con score calculado; la respuesta no
+  trae el score, se pide con `GET .../score`.
+- **Plan, V2 vs. frontend:** el desglose del plan trae «puntos obtenidos, máximo»; el tipo del frontend
+  solo tiene `score`. Se añade `max_points`.
+- **Plan vs. 8 KB globales:** 4000 caracteres no caben en el tope global de cuerpo (8 KB) con texto
+  multibyte; `POST .../turns` declara 32 KB propios.
+- **Casos sin cubrir en el plan** y fijados en el contrato: orden de validaciones de `POST /interviews`,
+  paginación de `GET /interviews`, `finish` desde `paused`/`abandoned` (409 `estado_invalido`),
+  `DELETE` en cualquier estado, `limite_del_plan` con `renews_at`, `Retry-After` en 429.
+- **Frontend a ajustar:** `limite_del_plan` falta en `ERRORES_ENTREVISTA[403]` (y `renews_at` en
+  `echo`), `InterviewSummary` y `ProgressPoint` ganan campos, los listados llegan como `{items}`.
+- **Inconsistencia previa en `api.md`:** «Formato» dice errores `{error:{code,message}}` y la sección
+  de Identidad `{error, message}`; este contrato sigue la segunda, que es la implementada.

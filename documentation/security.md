@@ -163,3 +163,18 @@ van en claro: nombres, descripción del perfil, empresa, cargo, nombre del archi
 `telemetry::env_filter` fija **por código** que `sea_orm`, `sqlx` y `sea_orm_migration` no pasen de
 `warn`, venga lo que venga en `RUST_LOG`. Desactivar `sqlx_logging` **no** basta (se probó). Las
 pruebas de logs capturan con ese filtro al máximo. Verificado con el binario real y `RUST_LOG=trace`.
+
+### Entrevista (Fase 3)
+
+Contrato en [api.md](api.md#entrevista-fase-3). Lo que la seguridad exige de él:
+
+- **La transcripción es dato sensible** y se guarda **cifrada** (`interview_turns.transcript`). Una
+  sesión ajena responde 404, nunca 403.
+- **El texto de la persona, el del recruiter y el desglose no se escriben en ningún log** (ni de
+  peticiones correctas ni de errores) y los 422 no repiten lo enviado. `POST /interviews/{id}/turns`
+  declara su propio tope de cuerpo (32 KB): el global de 8 KB no alcanza para 4000 caracteres.
+- **Tope de uso:** 20 turnos por minuto por persona (429), 40 turnos por sesión y una sola sesión
+  activa; contienen abuso y, cuando entre el motor de IA, costo.
+- **Texto como dato, nunca como instrucción:** lo que la persona escribe no cambia el score ni el
+  comportamiento del motor (caso X8, que se repite con el motor de IA).
+- **El motor no recibe PII ni ids de persona**, solo el historial y la configuración del recruiter.
