@@ -459,31 +459,50 @@ unique compuesto. Precalculado: HU-30 tiene que responder rápido, no calcular a
 
 ### `ai_recruiters`
 
-El elenco: Ana, Martín, Laura, Carlos, Sofía. Ver [producto.md](producto.md).
+El elenco: Ana, Martín, Laura, Carlos, Sofía. Ver [producto.md](producto.md). Se siembra en la
+migración `m20261108_000001_create_interview_catalog`; en el código se nombran por `code`
+(`RecruiterCode`), nunca por id, porque los ids cambian entre entornos.
 
 | Columna | Tipo | Notas |
 |---|---|---|
 | `id` | uuid v7 | PK |
-| `code` | varchar unique | `ana`, `martin`, `laura`… Estable, se usa en el código |
+| `code` | varchar unique | `ana`, `martin`, `laura`, `carlos`, `sofia`. Estable, se usa en el código |
 | `display_name` | varchar | |
 | `role_title` | varchar | «CTO», «Recruiter Big Tech» |
 | `personality` | text | Descripción visible para el usuario |
-| `system_prompt` | text | Configuración, versionada en git y sincronizada acá |
-| `voice_id` | varchar | Voz del proveedor |
-| `avatar_asset_key` | varchar | Imagen base para la animación |
-| `language_id` | uuid | FK. Sofía entrevista en inglés |
-| `rubric_id` | uuid | FK |
+| `system_prompt` | text | Configuración, versionada en git y sincronizada acá. Se siembra vacío (`''`): es del motor de IA |
+| `voice_id` | varchar null | Voz del proveedor |
+| `avatar_asset_key` | varchar null | Imagen base para la animación |
+| `language_id` | uuid | FK a `languages`, buscado por `code`. Sofía entrevista en inglés (`en`); los otros cuatro en español (`es`) |
+| `rubric_id` | uuid | FK. Una rúbrica propia por recruiter |
 | `active` | boolean | |
+| `sort_order` | int | Orden de presentación |
+
+Semillas: `ana` (RRHH), `martin` (CTO), `laura` (Recruiter Big Tech), `carlos` (CEO de startup) y
+`sofia` (Recruiter internacional).
 
 ### `rubrics` y `rubric_versions`
 
 Un score de hace tres meses tiene que seguir explicándose con la rúbrica con la que se calculó.
 Por eso la rúbrica se versiona y el score guarda **qué versión** lo produjo.
 
-`rubrics` — `id` · `name` · `description`
+`rubrics` — `id` · `name` (único) · `description`
 
-`rubric_versions` — `rubric_id` FK · `version (int)` · `criteria (jsonb)` · `published_at` ·
-`is_current (boolean)`. Una versión publicada **nunca se edita**: se publica otra.
+`rubric_versions` — `id` · `rubric_id` FK · `version (int)` · `criteria (jsonb)` · `published_at` ·
+`is_current (boolean)`. `(rubric_id, version)` es único.
+
+- **Una sola vigente por rúbrica**: índice único parcial sobre `rubric_id` donde `is_current`.
+- **Una versión publicada nunca se edita ni se borra**: se publica otra. Lo garantiza un trigger
+  (`rubric_versions_immutable_trg`): si `published_at` no es null, cualquier `UPDATE` que cambie
+  `rubric_id`, `version`, `criteria` o `published_at`, y cualquier `DELETE`, falla. Lo único que se
+  puede cambiar es `is_current` (pasa a `false` cuando entra la nueva). Un borrador
+  (`published_at` null) sí se edita.
+- **`criteria`** es un arreglo de objetos `{code, name, max_points, description}` cuyos
+  `max_points` suman **exactamente 100**. Los `code` son `especificidad`, `estructura`,
+  `relevancia`, `claridad` y `profundidad`; cada recruiter les da un peso distinto (Martín pesa más
+  la especificidad y la profundidad; Laura, la estructura). Esa suma la vigila una prueba, no la base.
+
+Semillas: una rúbrica (`rubrica-<code>`) con su versión 1 publicada y vigente por recruiter.
 
 ### `interview_levels`
 
@@ -491,43 +510,67 @@ Por eso la rúbrica se versiona y el score guarda **qué versión** lo produjo.
 |---|---|
 | `code` | `junior` · `startup` · `amazon` · `google` · `mckinsey` |
 | `display_name` · `description` | |
-| `sort_order` | int |
-| `previous_level_id` | uuid null. El nivel que hay que pasar antes |
-| `min_score_to_unlock` | smallint. Score mínimo en el anterior |
+| `sort_order` | int. 0 a 4, de menor a mayor |
+| `previous_level_id` | uuid null. El nivel que hay que pasar antes. Junior es null; el resto forma una cadena sin ciclos (un nivel no puede preceder a sí mismo) |
+| `min_score_to_unlock` | smallint null, entre 1 y 100. Score mínimo en el anterior. Null solo si no hay nivel previo |
+| `available` | boolean, por defecto `false`. Solo los niveles con banco de preguntas se pueden empezar |
+| `active` | boolean |
+
+Semillas: Junior (sin mínimo), Startup (60), Amazon (70), Google (75) y McKinsey (80). Solo Junior
+y Startup están `available`; los otros tres existen pero no se pueden empezar.
 
 ### `interview_sessions`
+
+Migración `m20261108_000002_create_interviews`.
 
 | Columna | Tipo | Notas |
 |---|---|---|
 | `id` | uuid v7 | PK |
-| `applicant_id` | uuid | FK |
+| `applicant_id` | uuid | FK, `ON DELETE CASCADE`: borrar la cuenta borra sus sesiones |
 | `ai_recruiter_id` | uuid | FK |
 | `interview_level_id` | uuid | FK |
-| `job_offer_id` | uuid | FK **null** — practicar para una oferta concreta (HU-31) |
-| `rubric_version_id` | uuid | FK. Se fija al empezar, no al terminar |
-| `status` | enum | `created` · `in_progress` · `paused` · `completed` · `abandoned` |
-| `started_at` · `ended_at` | timestamptz | |
-| `duration_seconds` | int | null |
+| `job_offer_id` | uuid | **null, sin FK por ahora**: `job_offers` todavía no existe; la FK entra con la migración de ofertas — practicar para una oferta concreta (HU-31) |
+| `rubric_version_id` | uuid | FK, NOT NULL. Se fija al empezar, no al terminar |
+| `status` | enum `interview_status` | `created` · `in_progress` · `paused` · `completed` · `abandoned`. Por defecto `created` |
+| `started_at` · `paused_at` · `completed_at` | timestamptz | null hasta que ocurre cada hecho |
+| `last_activity_at` | timestamptz | NOT NULL, por defecto `now()` |
+| `created_at` · `updated_at` | timestamptz | |
 
-`paused` existe por HU-14: cortar a mitad y retomar después.
+Una persona tiene **a lo sumo una sesión abierta**: índice único parcial
+`interview_sessions_one_open_per_applicant_idx` sobre `applicant_id` donde `status` es
+`in_progress` o `paused`. Las `created`, `completed` y `abandoned` no tienen tope.
+
+`paused` existe por HU-14: cortar a mitad y retomar después. (El diseño original traía
+`ended_at` y `duration_seconds`; se reemplazan por `paused_at`/`completed_at` y la duración se
+calcula.)
 
 ### `interview_turns`
 
-`interview_session_id` FK · `seq (int)` · `speaker` enum (`recruiter` · `applicant`) ·
-`transcript (text)` · `started_at` · `ended_at` · `audio_ms (int)` · unique (`session_id`, `seq`).
+| Columna | Tipo | Notas |
+|---|---|---|
+| `id` | uuid v7 | PK |
+| `interview_session_id` | uuid | FK, `ON DELETE CASCADE` |
+| `seq` | int | ≥ 1. `UNIQUE (interview_session_id, seq)` |
+| `speaker` | enum `interview_speaker` | `recruiter` · `applicant` |
+| `kind` | varchar | CHECK: `question` · `follow_up` · `answer` · `closing` |
+| `transcript` | **bytea** | **Cifrado a nivel de aplicación** (AES-256-GCM, `nonce ‖ cifrado ‖ etiqueta`) con las `PiiKeys`, vía `interview::store_crypto`. Nunca texto en claro |
+| `audio_ms` | int | null (en modo texto no hay audio), ≥ 0 |
+| `created_at` | timestamptz | |
 
-**El audio no se persiste** salvo que el usuario lo pida. La transcripción sí: es lo que le da
-valor al feedback (HU-15) y a la memoria entre sesiones (HU-13). Ver [security.md](security.md).
+**El audio no se persiste** salvo que el usuario lo pida. La transcripción sí, cifrada: es lo que
+le da valor al feedback (HU-15) y a la memoria entre sesiones (HU-13), y es dato sensible. Ver
+[security.md](security.md).
 
 ### `interview_scores` — 1:1 con la sesión
 
 | Columna | Tipo | Notas |
 |---|---|---|
-| `interview_session_id` | uuid | FK unique |
-| `score` | smallint | 0–100 |
-| `confidence` | smallint | 0–100. Señales de voz |
-| `clarity` | smallint | 0–100. Contenido |
-| `breakdown` | jsonb | **El «por qué».** Los 2–3 puntos concretos que subirían el score |
+| `id` | uuid v7 | PK |
+| `interview_session_id` | uuid | FK unique, `ON DELETE CASCADE` |
+| `score` | smallint | NOT NULL, CHECK 0–100 |
+| `confidence` | smallint | **null**, CHECK 0–100. Señales de voz: en modo texto no existe |
+| `clarity` | smallint | NOT NULL, CHECK 0–100. Contenido |
+| `breakdown` | jsonb | NOT NULL. **El «por qué».** Los 2–3 puntos concretos que subirían el score |
 | `rubric_version_id` | uuid | FK. Con cuál se calculó |
 | `computed_at` | timestamptz | |
 
@@ -563,8 +606,9 @@ token muere. Ver el contrato en [api.md](api.md).
 
 ### `applicant_level_progress`
 
-`applicant_id` · `interview_level_id` · `unlocked_at` · `best_score` · `sessions_completed` ·
-unique compuesto (HU-23).
+`id` · `applicant_id` FK (`ON DELETE CASCADE`) · `interview_level_id` FK · `unlocked_at`
+(por defecto `now()`) · `best_score` (smallint null, 0–100) · `sessions_completed` (int, por
+defecto 0, ≥ 0) · `UNIQUE (applicant_id, interview_level_id)` (HU-23).
 
 ---
 
@@ -593,11 +637,33 @@ borrado de la cuenta: es la constancia de que ocurrió (HU-05, HU-41).
 
 ### `usage_ledger`
 
-`user_id` · `interview_session_id` FK null · `provider` · `operation` · `units` ·
-`cost_micros (bigint)` · `occurred_at`.
+Migración `m20261108_000003_create_usage_ledger`.
+
+| Columna | Tipo | Notas |
+|---|---|---|
+| `id` | uuid v7 | PK |
+| `user_id` | uuid | FK → `users`, **`ON DELETE SET NULL`**, null. Borrar la cuenta deja la fila sin el id de la persona: el costo agregado sobrevive y nadie queda detrás |
+| `interview_session_id` | uuid | FK → `interview_sessions`, **`ON DELETE SET NULL`**, null. Borrar una sesión no borra su gasto, y por eso tampoco devuelve la cuota |
+| `provider` | varchar | not null. `deterministic` mientras el motor no cueste; el motor de IA traerá el suyo |
+| `operation` | varchar | not null. Hoy `interview_session` |
+| `units` | integer | not null, ≥ 0 |
+| `cost_micros` | bigint | not null, por defecto 0, ≥ 0 (millonésimas de la moneda de cobro) |
+| `occurred_at` | timestamptz | por defecto `now()` |
+
+Índices: `(user_id, operation, occurred_at)` (la cuenta mensual) e `(interview_session_id)`.
 
 Objetivo de negocio: costo por sesión conocido y con tope. Un usuario no puede quemar el margen
 del mes. Sin esta tabla no hay forma de saberlo hasta que llega la factura.
+
+**Cuota mensual por plan (Fase 3).** Cada sesión de entrevista iniciada escribe una fila
+(`operation = 'interview_session'`, `provider = 'deterministic'`, `units = 1`, `cost_micros = 0`),
+**en la misma transacción** que crea la sesión. La cuota del mes se cuenta sobre esas filas, en mes
+calendario UTC, contra `plans.monthly_simulations` (null = sin tope; Gratis 1, Estudiantil 10,
+Estándar 12). Sin suscripción activa (ninguna, vencida o cancelada) se aplica el tope de Gratis:
+nunca «sin tope». Cambiar de plan a mitad de mes aplica el tope nuevo a lo ya usado. Abandonar o
+borrar una sesión no devuelve la cuota. Superar el tope es `403 limite_del_plan` con `renews_at`
+(primer instante del mes siguiente, UTC). La variable `ENFORCE_PLAN_LIMITS=false` salta solo la
+comprobación; el uso se sigue registrando.
 
 ---
 

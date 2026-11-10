@@ -50,6 +50,37 @@ El puerto 3000 (frontend) ya lo usa el contenedor 'apuntes-frontend-1'
 **La primera vez tarda varios minutos**: compila Rust desde cero e instala `node_modules`. Las
 siguientes son rápidas — las dependencias quedan en volúmenes.
 
+**La primera vez, además, hay que migrar**: `make dev` no aplica las migraciones. Con la base vacía
+la API arranca igual, pero las rutas fallan y el log repite `relation "..." does not exist`. Con el
+entorno arriba, en otra terminal: `make migrate`.
+
+`make ports` solo ve los puertos de **contenedores**. Si tienes PostgreSQL instalado en la máquina
+(común en Windows, como servicio), ocupa el 5432 sin que el chequeo lo note: pon `DB_PORT=5433` en
+el `.env` de este repo.
+
+### Sin `make` (por ejemplo, en Windows)
+
+Lo mismo a mano, desde `jobout-docs`:
+
+```bash
+cp -n docker-compose.example.yml docker-compose.yml; cp -n .env.example .env
+cp -n ../jobout-core-api/.env.example ../jobout-core-api/.env; cp -n ../jobout-web/.env.example ../jobout-web/.env.local
+docker compose up --build                                        # make dev
+docker compose exec core-api cargo run -p migration -- up        # make migrate
+docker compose exec -e TEST_DATABASE_URL=postgres://jobout:jobout@postgres:5432/postgres core-api cargo test --workspace   # pruebas del backend
+```
+
+**En Windows la recarga en caliente de `web` no se entera de los cambios**: Docker no le pasa al
+contenedor los avisos de archivos modificados y Next no tiene `WATCHPACK_POLLING`. El archivo sí
+cambia adentro, pero la página sigue sirviendo lo viejo hasta `docker compose restart web`.
+
+En `jobout-web`, instala con `npm ci`: `package-lock.json` está versionado (aunque figure en
+`.gitignore`) y `npm install` lo reescribe.
+
+Las pruebas del backend conviene correrlas **dentro del contenedor**: es Linux como el CI, y las
+pruebas de tiempo usan el reloj de CPU del hilo, que en otros sistemas cae al de pared. Compilar las
+pruebas ahí pide mucha memoria; no hagas el recorrido en el navegador mientras compilan.
+
 ## Comandos
 
 | | |

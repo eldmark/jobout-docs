@@ -137,6 +137,124 @@ cuenta se encolan sus claves (cifradas) en `pending_storage_deletions`; después
 intenta borrar cada archivo y, si el almacén falla, la cuenta igual queda borrada y una tarea
 (`storage_cleanup`, cada 60 s) reintenta hasta 10 veces.
 
+### Entrevista (Fase 3)
+
+Bajo `/api/v1`. **Todas las rutas son `Authenticated`** (ninguna es pública; sin token o con uno
+inválido, 401) y **filtran por dueño: una sesión, turno o score ajeno, inexistente o con id mal
+formado en el path da siempre 404 `no_encontrado`**, nunca 403. Una cuenta suspendida recibe 403
+`cuenta_no_disponible` en todas. Errores con la forma de Identidad:
+`{"error": "<código>", "message": "<texto en español>"}`, más campos extra solo donde se indica.
+Ningún error ni log lleva el texto de la persona, el del recruiter ni el desglose. Fechas ISO 8601
+con zona. Los ids son UUID. Los formatos exactos quedan fijados por los tests de `tests/interviews.rs`.
+
+| Ruta | Cuerpo → respuesta |
+|---|---|
+| `GET /recruiters` | → 200 `{items: [{id, code, display_name, role_title, personality, language}]}` (`language`: `es` \| `en`). Nunca `system_prompt` ni la rúbrica |
+| `GET /levels` | → 200 `{items: [{id, code, name, position, available, unlocked, min_score_to_unlock, best_score, sessions_completed}]}` por `position` ascendente, para **mi** cuenta |
+| `GET /progress` | → 200 `{items: [{session_id, completed_at, level, recruiter, score}]}` |
+| `POST /interviews` | `{recruiter_id, level_id}` → 201 `Interview` con la primera pregunta · 403 `nivel_bloqueado` · 403 `limite_del_plan` · 404 · 409 `nivel_no_disponible` · 409 `sesion_en_curso` · 422 `datos_invalidos` · 503 `motor_no_disponible` |
+| `GET /interviews` | `?limit&cursor&status` → 200 `{items: [InterviewSummary], next_cursor}` |
+| `GET /interviews/{id}` | → 200 `Interview` con **todos** los turnos descifrados y en orden |
+| `POST /interviews/{id}/pause` | → 204 · 409 `estado_invalido` |
+| `POST /interviews/{id}/resume` | → 200 `{turn}` · 409 `estado_invalido` |
+| `POST /interviews/{id}/abandon` | → 204 · 409 `estado_invalido` |
+| `DELETE /interviews/{id}` | → 204 |
+| `POST /interviews/{id}/turns` | `{text}` → 201 `{turn, done}` · 409 `estado_invalido` · 409 `turno_en_proceso` · 422 `datos_invalidos` · 429 `demasiados_intentos` · 503 `motor_no_disponible` |
+| `POST /interviews/{id}/finish` | → 200 `Score` · 409 `estado_invalido` · 409 `turno_en_proceso` · 422 `entrevista_muy_corta` |
+| `GET /interviews/{id}/score` | → 200 `Score` · 409 `estado_invalido` |
+
+**Formas.**
+
+```jsonc
+// Turn: speaker es "recruiter" | "applicant" (el enum interview_speaker de db.md).
+// Lo del recruiter lleva kind question|follow_up|closing; lo de la persona, kind "answer".
+{ "seq": 2, "speaker": "recruiter", "kind": "follow_up", "text": "..." }
+{ "seq": 3, "speaker": "applicant", "kind": "answer", "text": "..." }
+
+// Interview (POST /interviews → 201, GET /interviews/{id} → 200)
+{ "id": "uuid", "status": "in_progress",
+  "recruiter": { "id": "uuid", "display_name": "Ana", "role_title": "RRHH" },
+  "level": { "id": "uuid", "code": "junior", "name": "Junior" },
+  "created_at": "...", "turns": [ /* Turn */ ] }
+
+// InterviewSummary (sin transcripción)
+{ "id": "uuid", "status": "completed",
+  "level": { "id": "uuid", "code": "junior", "name": "Junior" },
+  "recruiter": { "id": "uuid", "display_name": "Ana" },
+  "score": 72, "created_at": "...", "completed_at": "..." }   // score y completed_at: null si no hay
+
+// Score (finish y GET /score)
+{ "score": 72, "clarity": 65, "confidence": null,
+  "breakdown": [ { "criterion": "especificidad", "label": "Especificidad",
+                   "score": 14, "max_points": 25, "why": "..." } ],
+  "improvements": ["...", "..."], "rubric_version": 1, "computed_at": "..." }
+```
+
+**Decisiones que fija este contrato**
+
+- **Listados**: siempre `{items: [...]}`. Solo `GET /interviews` pagina: por cursor opaco, más
+  recientes primero (`created_at` desc), `limit` 1–50 (defecto 20), `next_cursor` es `null` en la
+  última página; `status` opcional filtra por un estado (`in_progress` \| `paused` \| `completed` \|
+  `abandoned`). Un `limit`, `status` o `cursor` inválido → 422 `datos_invalidos`. `GET /progress` no
+  pagina: devuelve las **200 sesiones completadas más recientes**, en orden **cronológico ascendente**.
+  `level` y `recruiter` en `progress` son el nombre del nivel y el `display_name`.
+- **Estados**: la sesión nace `in_progress` (`created` existe en el enum pero no se ve por la API).
+  `pause` solo desde `in_progress`; `resume`, solo desde `paused`; `abandon`, desde `in_progress` o
+  `paused`; `turns` solo en `in_progress`; `finish` solo en `in_progress` (y `completed` es
+  idempotente, ver abajo); `score`, solo en `completed`. Cualquier otro caso → **409 `estado_invalido`**
+  sin tocar nada. `DELETE` vale en **cualquier** estado (incluso activa: libera el cupo) y no cambia el
+  progreso ya acumulado.
+- **Crear (`POST /interviews`)**: orden de validación: cuerpo (422; ids que no son UUID también, no
+  404) → recruiter y nivel existen (404) → nivel `available` (409 `nivel_no_disponible`, antes que el
+  bloqueo, para que Amazon, Google y McKinsey digan siempre lo mismo) → nivel desbloqueado (403
+  `nivel_bloqueado`) → sin sesión activa (409 `sesion_en_curso`) → cuota (403 `limite_del_plan`).
+  `sesion_en_curso` añade un campo `session_id` con la sesión activa:
+  `{"error": "sesion_en_curso", "message": "...", "session_id": "uuid"}`. `limite_del_plan` añade
+  `renews_at` (ISO 8601: primer instante del mes siguiente, UTC). Dos creaciones simultáneas dejan
+  **una** sola sesión; la otra recibe `sesion_en_curso`.
+- **Turnos (`POST .../turns`)**: `text` se recorta de espacios; vacío o de más de **4000 caracteres**
+  (Unicode, no bytes) → 422 `datos_invalidos`, sin guardar nada. Esta ruta declara su propio tope de
+  cuerpo (`RouteSpec.body_limit`, 32 KB): el global de 8 KB no alcanza. Responde 201 con el turno del
+  recruiter y `done`; se guardan dos turnos con `seq` consecutivos, o ninguno. **Todo o nada**: si el
+  motor falla → 503 `motor_no_disponible` y la respuesta de la persona **no** queda guardada (puede
+  reenviar el mismo texto). Un turno simultáneo en la misma sesión → 409 `turno_en_proceso`.
+  Límite de **20 turnos por minuto** por persona → 429 `demasiados_intentos` con `Retry-After`.
+  Máximo **40 turnos** por sesión; al llegar, la sesión se cierra y `done` es `true`.
+- **`done: true`** significa que la sesión ya está **`completed`** con su score calculado (el
+  recruiter respondió con `kind: "closing"`). La respuesta no repite el score: se pide con
+  `GET /interviews/{id}/score`.
+- **`finish`** **devuelve el cuerpo `Score`** (200). Exige al menos **2 respuestas** de la persona;
+  con menos → 422 `entrevista_muy_corta` y la sesión sigue abierta. Es **idempotente**: sobre una
+  sesión ya `completed` devuelve el mismo `Score` sin recalcular, y dos `finish` simultáneos dejan un
+  solo score. Sobre una sesión `paused` o `abandoned` → 409 `estado_invalido`; con un turno en vuelo,
+  409 `turno_en_proceso`.
+- **`Score`**: `score` y `clarity` son enteros 0–100; `confidence` es **siempre `null`** en modo
+  texto; `breakdown` trae un elemento por criterio de la rúbrica **de la sesión** (no de la vigente),
+  con `score` = puntos obtenidos, `max_points` y un `why` no vacío; la suma de los `score` del
+  desglose es exactamente el `score` total; `improvements` tiene 2 o 3 textos ordenados por cuánto
+  subirían el score; `rubric_version` es el entero de la versión fijada al empezar. Un `why` nunca
+  copia más de 80 caracteres literales de la persona.
+- **`resume`** devuelve el último turno del recruiter (`{turn}`), sin repetir ni saltar preguntas.
+  Una sesión pausada más de 7 días pasa sola a `abandoned` y libera el cupo.
+- **`Interview.turns`**: en `POST /interviews` trae solo la primera pregunta; en `GET` trae todos.
+- **Desbloqueo**: terminar con `score` ≥ `min_score_to_unlock` del **siguiente** nivel lo desbloquea
+  (un escalón por vez); `best_score` solo sube; `sessions_completed` cuenta solo `completed`. Un nivel
+  no `available` siempre sale con `unlocked: false`.
+- **Cuota**: cuenta sesiones **iniciadas** por mes calendario (UTC), así que abandonar o borrar no la
+  devuelve; sin suscripción activa se trata como plan Gratis (1 al mes). Se puede apagar con
+  `ENFORCE_PLAN_LIMITS=false`.
+
+**Códigos de error del grupo**
+
+| Estado | `error` |
+|---|---|
+| 401 | sin token o token inválido (igual que el resto de la API) |
+| 403 | `nivel_bloqueado`, `limite_del_plan` (con `renews_at`), `cuenta_no_disponible` |
+| 404 | `no_encontrado` (recurso ajeno, inexistente o id mal formado en el path) |
+| 409 | `nivel_no_disponible`, `sesion_en_curso` (con `session_id`), `turno_en_proceso`, `estado_invalido` |
+| 422 | `datos_invalidos`, `entrevista_muy_corta` |
+| 429 | `demasiados_intentos` (con `Retry-After`) |
+| 503 | `motor_no_disponible` |
 
 _Por definir, fase por fase._ Áreas previstas:
 
