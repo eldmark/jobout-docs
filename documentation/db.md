@@ -79,8 +79,8 @@ IDENTIDAD              PERFIL CANDIDATO           EMPRESA
 users                  applicants                 companies
  ├ user_credentials     ├ personal_data            ├ company_recruiters
  ├ refresh_tokens       ├ professional_data        ├ memberships
- ├ user_roles           ├ job_preferences          └ company_favorite_applicants
- ├ user_subscriptions   ├ applicant_languages
+ ├ user_roles           ├ job_preferences          ├ company_invitations
+ ├ user_subscriptions   ├ applicant_languages      └ company_favorite_applicants
  ├ admins               ├ applicant_skills         OFERTAS
  ├ applicants           ├ cvs                      job_offers
  └ company_recruiters   │  ├ cv_extractions         ├ job_offer_skills
@@ -97,7 +97,7 @@ interview_sessions
  ├ interview_turns          TRANSVERSAL
  ├ interview_scores         access_audit
  ├ interview_session_tokens privacy_events
- └ recruiter_memories       usage_ledger
+ └ recruiter_memories       usage_ledger · rate_events
 
 CATÁLOGOS  countries → states → cities → zones
            document_types · genders · marital_statuses · driver_licenses
@@ -235,7 +235,21 @@ Empresarial) y no se toca.
 
 ### `company_recruiters`
 
-`user_id` FK · `company_id` FK · `position` · `deleted_at`
+Migración `m20261110_000002_create_companies` (Fase 5a, paso 3).
+
+| Columna | Tipo | Notas |
+|---|---|---|
+| `id` | uuid v7 | PK. Es el `id` que ve el administrador en `GET /company/recruiters` |
+| `user_id` | uuid | FK → `users`, **`ON DELETE CASCADE`**: borrar la cuenta borra su fila |
+| `company_id` | uuid | FK → `companies` |
+| `role` | varchar | `company_admin` o `recruiter` (`CHECK`). Es la verdad de «mi rol en la empresa»; el rol de la cuenta (`user_roles`) lo da la misma transacción |
+| `position` | varchar | null (cargo; la 5a no lo pide) |
+| `deleted_at` | timestamptz | null. Quitar a alguien lo marca, no borra la fila |
+
+**Una persona, una empresa**, garantizado por el índice único **parcial**
+`company_recruiters_one_company_per_user` (`UNIQUE (user_id) WHERE deleted_at IS NULL`): quien salió
+(`deleted_at`) puede entrar a otra. Los roles de empresa solo se dan al crear la empresa
+(`company_admin`) y al aceptar una invitación; ninguna otra ruta los asigna.
 
 > **Renombrada.** En el diagrama original era `Recruiter`. En JobOut, «recruiter» es Ana,
 > Martín o Laura — los entrevistadores de IA. Dos cosas distintas no pueden llamarse igual: el
@@ -375,8 +389,20 @@ borrado de la persona.
 
 ### `companies`
 
-`name` · `tax_id` · `website` · `phone` · `description` · `active` · `deleted_at` ·
-`country_id` FK · `employment_sector_id` FK
+Migración `m20261110_000002_create_companies` (Fase 5a, paso 3).
+
+| Columna | Tipo | Notas |
+|---|---|---|
+| `id` | uuid v7 | PK |
+| `name` | varchar | |
+| `tax_id` | bytea | **cifrado** (AES-256-GCM, como el resto de la PII). El NIT como lo escribió la persona |
+| `tax_id_hash` | bytea | HMAC-SHA256 del NIT **normalizado** (mayúsculas, sin guiones ni espacios) con la clave de hash y un prefijo de dominio. **Único** (`companies_tax_id_hash_key`): dos empresas no pueden tener el mismo NIT sin poder leerlo desde la base |
+| `website` · `phone` · `description` | varchar · varchar · text | null |
+| `active` · `deleted_at` | boolean · timestamptz | |
+| `verified_at` | timestamptz | **null por defecto**: la empresa nace sin verificar. Solo lo mueven las rutas `company.verify`, nunca un `UPDATE` a mano |
+| `country_id` | uuid | FK → `countries` |
+| `employment_sector_id` | uuid | FK → `employment_sectors` |
+| `created_by` | uuid | FK → `users`, **`ON DELETE SET NULL`**: de ahí sale el dominio del correo que ve el admin de plataforma; si la cuenta se borra, queda `null` |
 
 ### `memberships`
 
@@ -385,9 +411,33 @@ borrado de la persona.
 | Columna | Notas |
 |---|---|
 | `company_id` | **FK nueva.** En el diagrama original la membresía era huérfana: no se sabía de quién era |
-| `membership_type_id` | FK a catálogo |
-| `start_date` · `expiration_date` | |
-| `status` | enum `active` · `expired` · `cancelled` |
+| `membership_type_id` | FK a catálogo (`membership_types`; hoy solo `business`) |
+| `start_date` · `expiration_date` | `date`; `CHECK (expiration_date >= start_date)` |
+| `status` | enum `membership_status` `active` · `expired` · `cancelled` |
+
+**Una sola `active` por empresa** (índice único parcial `memberships_one_active_per_company`); el
+historial (`cancelled`, `expired`) no tiene tope. `PUT /admin/companies/{id}/membership` cancela la
+vigente y crea la nueva en una transacción. «Vigente» se calcula por fechas (`start_date <= hoy <=
+expiration_date`, UTC) **y** `status = 'active'`; la columna no cambia sola al vencer.
+
+### `company_invitations`
+
+Migración `m20261110_000002_create_companies`. Invitación de un reclutador a **una** empresa.
+
+| Columna | Tipo | Notas |
+|---|---|---|
+| `id` | uuid v7 | PK |
+| `company_id` | uuid | FK → `companies`, `ON DELETE CASCADE` |
+| `email_hash` | bytea | HMAC del correo del invitado (el mismo de `users.email_hash`). **No hay correo en claro**: la invitación solo sirve para la cuenta con ese correo |
+| `role` | varchar | `recruiter` o `company_admin` (`CHECK`) |
+| `token_hash` | bytea | **SHA-256** del token (256 bits aleatorios, base64url). Único. El token solo se devuelve una vez; aquí nunca está en claro |
+| `expires_at` | timestamptz | creación + 7 días |
+| `used_at` | timestamptz | null. Se marca con `UPDATE ... WHERE used_at IS NULL AND expires_at > now()`: un solo uso, aun con dos aceptaciones simultáneas |
+| `revoked_at` | timestamptz | null. Revocar la deja inservible y la saca del listado |
+| `created_by` | uuid | FK → `users`, `ON DELETE SET NULL` |
+| `created_at` | timestamptz | |
+
+Los topes (20 por empresa y día, 50 pendientes) se cuentan sobre estas filas.
 
 ### `company_favorite_applicants`
 
@@ -629,11 +679,28 @@ defecto 0, ≥ 0) · `UNIQUE (applicant_id, interview_level_id)` (HU-23).
 
 ### `access_audit`
 
-`actor_user_id` · `action` · `resource_type` · `resource_id` · `ip_hash (bytea)` ·
-`created_at`.
+Migración `m20261110_000002_create_companies` (Fase 5a, paso 3).
+
+| Columna | Tipo | Notas |
+|---|---|---|
+| `id` | uuid v7 | PK |
+| `actor_user_id` | uuid | FK → `users`, **`ON DELETE SET NULL`**: el rastro sobrevive a la cuenta, sin su id |
+| `action` | varchar | `company.list`, `company.verify`, `company.unverify`, `company.membership_set` |
+| `resource_type` · `resource_id` | varchar · uuid | `company` y la empresa (nulo en la lista) |
+| `ip_hash` | bytea | HMAC de la IP con prefijo de dominio; null si no se conoce. Nunca la IP |
+| `created_at` | timestamptz | |
 
 **Sin el contenido del dato.** El registro de auditoría no puede convertirse en la nueva
-filtración. Por eso la IP va hasheada.
+filtración. Por eso la IP va hasheada: ni NIT, ni nombre, ni correo. La fila se escribe en la
+**misma transacción** que la acción: si el insert falla, la acción falla.
+
+### `rate_events`
+
+Migración `m20261110_000002_create_companies`. Contador de intentos que sobrevive al proceso, como
+`login_attempts` pero con una fila por intento: `id` · `kind` (`company_create`,
+`invitation_accept`) · `subject_id` (FK → `users`, `ON DELETE CASCADE`) · `created_at`. Índice
+`(kind, subject_id, created_at)`. Sostiene «5 empresas por persona y día» y «10 intentos de aceptar
+una invitación por persona y hora».
 
 ### `privacy_events`
 
