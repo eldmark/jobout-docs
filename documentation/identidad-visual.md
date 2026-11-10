@@ -64,15 +64,41 @@ pitch.** Se vende práctica y feedback, no «entrevistas con inteligencia artifi
 
 ## En el código
 
-Los tokens viven en `jobout-web/app/globals.css` como variables CSS, **una sola vez**, y los
-componentes los usan; nadie escribe un hex a mano.
+Los tokens viven en `jobout-web/app/globals.css`, **una sola vez**, dentro de `@theme` de
+Tailwind (desde `jb-55`): Tailwind los publica como variables CSS en `:root` y además crea las
+utilidades `bg-indigo`, `text-coral`, `border-lavender`, etc. Los componentes usan los tokens;
+nadie escribe un hex a mano.
 
 ```css
-:root {
+@theme static {
+  --color-*: initial; /* sin la paleta por defecto de Tailwind: solo existen los de la marca */
   --color-indigo: #5b4bff;
   --color-ink: #14122b;
   --color-coral: #ff6b4a;
   --color-mint: #2fd39a;
   --color-lavender: #ece9ff;
+  --color-white: white;
 }
 ```
+
+Reglas que vigilan las pruebas de `jobout-web` (`brand.test.ts`, `tailwind-colors.test.ts`):
+
+- Cada hex aparece **una vez** en `globals.css` y nunca en un componente.
+- Ninguna clase de la paleta por defecto de Tailwind (`bg-zinc-900`, `text-gray-500`, …).
+- `bg-coral` va siempre con `text-ink` en la misma lista de clases (sobre coral, nunca blanco).
+- Los fondos animados son decorativos (`aria-hidden`) y, con «reducir movimiento», no se mueven.
+
+### Tailwind y los componentes de 21st.dev
+
+- Tailwind 4 **sin preflight**: las pantallas que no lo usan se ven como antes. Los estilos de
+  siempre viven en la capa `legacy`, ordenada antes de las utilidades
+  (`@layer theme, legacy, utilities`), así una utilidad gana sin pelear especificidad.
+- Los componentes de [21st.dev](https://21st.dev) se **copian y adaptan** en
+  `app/_components/ui/` (no se instalan como paquete): colores de la marca, sin hex, accesibles y
+  con «reducir movimiento». Cada archivo dice de dónde viene y qué cambió, y
+  `THIRD_PARTY_NOTICES.md` guarda las licencias.
+- Antes de traer uno, mirar su licencia en la página de 21st.dev. MIT no tiene problema; la de
+  **Aceternity** prohíbe redistribuir el código fuente, así que solo vale mientras el repo sea
+  privado.
+- Las animaciones nunca esconden contenido sin JavaScript: `Reveal` sale visible del servidor y
+  solo anima lo que al cargar está más abajo de la pantalla.
