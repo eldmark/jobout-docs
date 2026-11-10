@@ -463,3 +463,24 @@ Agregadas en la revisión contra el código del 2026-11-10:
   - **Huecos de `security.md` encontrados** (ver su sección de la Fase 5a): `married_last_name`, sesgo por el
     nombre visible, `tax_id` en claro, texto de confidenciales, notas libres sin cifrar, roles globales
     contra pertenencia por empresa, falta de canal de denuncia.
+- **2026-11-10, paso 4: ofertas del reclutador** (`jb-62-offers` en `jobout-core-api`, `jb-62-db-offers` aquí).
+  Lo que el contrato dejaba abierto y se resolvió al implementar; ningún caso OF1–OF12 se cambió:
+  - **`applications_count` transitorio:** `job_applications` no existe hasta el paso 6, así que OF7 (congelar
+    tras la primera aplicación) y «borrar solo un borrador sin aplicaciones» leen una columna entera
+    `job_offers.applications_count` (por defecto 0). El paso 6 la reemplaza por la cuenta real de
+    `job_applications` y borra la columna; la API no cambia.
+  - **Dos 409 a la vez en `PUT`:** `estado_invalido` (cerrada) gana a todo; entre `confidencial_inmutable` y
+    `oferta_con_aplicaciones` gana el primero (es el más específico y el que protege la identidad de la empresa).
+  - **`hiring_date` en `PUT`:** el rango «hoy a 2 años» solo se exige si el valor **cambia**: reenviar el mismo
+    (aunque ya haya vencido) sigue siendo idempotente. Se valida después de los 409 (depende del recurso).
+  - **`is_required` de una skill** se puede omitir y vale `true`; `min_level` puede ir `null`.
+  - **413** responde `{"error": "cuerpo_demasiado_grande"}` (el contrato fija el estado, no el código). Las
+    acciones (`publish`, `pause`, `close`) y las lecturas también leen el cuerpo para aplicar el tope de 8 KB.
+  - **Cupo de 20 ofertas por empresa y hora:** se cuenta sobre `job_offers.created_at` (filas existentes, sin
+    tabla de intentos), con un candado por empresa para que 30 creaciones simultáneas dejen exactamente 20.
+    Consecuencia conocida: borrar un borrador libera cupo.
+  - **Texto:** se quitan los caracteres de control y los invisibles o de dirección (`U+200B–200F`,
+    `U+202A–202E`, `U+2066–2069`, `U+FEFF`…); en una línea (título, horario) también los saltos de línea. El
+    HTML nunca se toca.
+  - **Cierre automático (OF9):** `offers::close_expired(db, now_micros)`; el proceso la corre al arrancar y
+    cada hora desde el bucle de limpieza. Pasadas las 00:00 UTC de `hiring_date + 1` la oferta se cierra.

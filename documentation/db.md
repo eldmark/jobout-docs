@@ -449,24 +449,38 @@ Los topes (20 por empresa y día, 50 pendientes) se cuentan sobre estas filas.
 
 ### `job_offers`
 
+Migración `m20261110_000003_create_job_offers` (Fase 5a, paso 4). Contrato en
+[api.md](api.md), «Ofertas del reclutador».
+
 | Columna | Tipo | Notas |
 |---|---|---|
 | `id` | uuid v7 | PK. Reemplaza al par `id int` + `uuid` del original |
-| `company_id` | uuid | **FK nueva.** Faltaba en el diagrama original |
-| `created_by` | uuid | FK → `company_recruiters` |
-| `name` | varchar | |
-| `description` | text | **una sola vez.** Estaba duplicada |
-| `status` | enum | `draft` · `published` · `paused` · `closed` |
-| `is_experience_required` | boolean | |
-| `required_experience` | int | null |
-| `main_language_id` | uuid | FK |
-| `is_confidential` · `featured` | boolean | |
-| `schedule` | varchar | |
-| `required_availability_to_travel` | boolean | |
-| `required_driver_license` | boolean | |
-| `vacancies` | int | |
-| `hiring_date` · `publication_date` | date | |
-| `profession_id` · `employment_sector_id` · `job_hierarchy_id` · `minimum_academic_level_id` · `state_id` · `city_id` · `salary_range_id` · `working_shift_id` · `contract_type_id` | uuid | FK a catálogos |
+| `company_id` | uuid | NOT NULL, FK → `companies`. Faltaba en el diagrama original. Toda consulta por id filtra también por ella |
+| `created_by` | uuid | **null**, FK → `company_recruiters`, `ON DELETE SET NULL`: borrar al reclutador no borra la oferta de la empresa (BO2) |
+| `name` | varchar(120) | NOT NULL. En la API se llama `title` |
+| `description` | text | null (un borrador puede estar casi vacío). **Una sola vez.** Estaba duplicada |
+| `status` | enum `job_offer_status` | `draft` · `published` · `paused` · `closed`. Por defecto `draft`. Solo cambia por las rutas de transición |
+| `is_experience_required` | boolean | NOT NULL, por defecto `false` |
+| `required_experience` | int | null, 0–50 (años). La API exige que vaya si `is_experience_required` y que no vaya si no |
+| `main_language_id` | uuid | null, FK → `languages` |
+| `is_confidential` | boolean | NOT NULL, por defecto `false`. Congelado por la API desde la primera publicación |
+| `company_visible` | boolean | **Columna generada** (`GENERATED ALWAYS AS (NOT is_confidential) STORED`): no se escribe y no sale de la API |
+| `featured` | boolean | NOT NULL, por defecto `false`. Es de plataforma: la API no lo acepta |
+| `schedule` | varchar(120) | null |
+| `required_availability_to_travel` | boolean | NOT NULL, por defecto `false` |
+| `required_driver_license` | boolean | NOT NULL, por defecto `false`. **Derivado**: lo fija el servidor (verdadero si hay filas en `job_offer_driver_licenses`) |
+| `vacancies` | int | null, 1–999 (la API lo exige para publicar) |
+| `hiring_date` | date | null. Pasada = la oferta abierta se cierra sola |
+| `publication_date` | date | null. La pone el servidor en la **primera** publicación y no cambia |
+| `closed_at` | timestamptz | null. Se fija al cerrar (a mano o por la tarea de `hiring_date`) y es la base de la retención de 90 días. `CHECK ((status = 'closed') = (closed_at IS NOT NULL))` |
+| `profession_id` · `employment_sector_id` · `job_hierarchy_id` · `minimum_academic_level_id` · `state_id` · `city_id` · `salary_range_id` · `working_shift_id` · `contract_type_id` | uuid | null, FK a catálogos. La API exige que estén activos y que `city_id` sea de `state_id` |
+| `applications_count` | int | NOT NULL, por defecto 0. **Transitorio**: `job_applications` aún no existe (paso 6), que lo sustituirá por la cuenta real y borrará la columna. Mientras tanto permite probar el congelamiento de la oferta tras la primera aplicación |
+| `created_at` · `updated_at` | timestamptz | NOT NULL, por defecto `now()` |
+
+Índices: `(company_id, created_at DESC, id DESC)` y `(company_id, status, created_at DESC, id DESC)`
+para el listado de la empresa (más nuevas primero, filtro por estado) y el límite de 20 ofertas por
+empresa y hora (se cuenta sobre estas filas); parcial `(hiring_date) WHERE status IN ('published',
+'paused')` para el cierre automático; parcial `(created_by) WHERE created_by IS NOT NULL` para la FK.
 
 **Columnas eliminadas del diagrama original, a propósito:**
 
@@ -488,6 +502,11 @@ filtrado.
 - `software_knowledge (json)` → `job_offer_skills` (`job_offer_id` · `skill_id` · `is_required` · `min_level`)
 - `extra_languages (json)` → `job_offer_languages` (`job_offer_id` · `language_id` · `min_proficiency`)
 - `expected_driver_license (array)` → `job_offer_driver_licenses` (`job_offer_id` · `driver_license_id`)
+
+Las tres tienen PK compuesta (`job_offer_id` + el id del catálogo: sin repetidos), FK `ON DELETE
+CASCADE` desde `job_offers` y un índice por el id del catálogo (para el matching de la 5b).
+`job_offer_skills.is_required` es NOT NULL (por defecto `true`) y `min_level` (enum `skill_level`)
+admite null. `job_offer_languages.min_proficiency` (enum `proficiency`) es NOT NULL.
 
 Misma razón que en el perfil: sin esto no hay matching indexable.
 
@@ -592,7 +611,7 @@ Migración `m20261108_000002_create_interviews`.
 | `applicant_id` | uuid | FK, `ON DELETE CASCADE`: borrar la cuenta borra sus sesiones |
 | `ai_recruiter_id` | uuid | FK |
 | `interview_level_id` | uuid | FK |
-| `job_offer_id` | uuid | **null, sin FK por ahora**: `job_offers` todavía no existe; la FK entra con la migración de ofertas — practicar para una oferta concreta (HU-31) |
+| `job_offer_id` | uuid | **null**, FK → `job_offers` **`ON DELETE SET NULL`** (la sesión sobrevive a la oferta); índice parcial donde no es null. Antes de la FK no había contra qué validar, así que la migración de ofertas anula cualquier valor previo — practicar para una oferta concreta (HU-31) |
 | `rubric_version_id` | uuid | FK, NOT NULL. Se fija al empezar, no al terminar |
 | `status` | enum `interview_status` | `created` · `in_progress` · `paused` · `completed` · `abandoned`. Por defecto `created` |
 | `started_at` · `paused_at` · `completed_at` | timestamptz | null hasta que ocurre cada hecho |
