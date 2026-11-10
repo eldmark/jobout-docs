@@ -408,3 +408,58 @@ Agregadas en la revisión contra el código del 2026-11-10:
   casos CT1–CT5, RB1–RB3 y PR5–PR6, las tablas que faltaban en «Cambios de esquema» y las decisiones 9 a
   14; se corrigieron EM6 (nombres de columna de `db.md`) y OF12 (los catálogos de la Fase 2 no
   alcanzan). Ningún caso se borró. No hay código.
+- **2026-11-10, contrato de la 5a** (`jb-60-fase5a-contract`; solo documentación, en `api.md`, `frontend.md` y
+  `security.md`). Se adoptó la opción recomendada de las decisiones 1–14 (5a = pasos 1–7 y 10–13; matching y
+  HU-31 a la 5b; sin `job_preferences`; HU-32 incluye las externas). Lo que hubo que decidir o que va más
+  allá del plan:
+  - **Máquina de estados:** PA4 decía «`shortlisted/rejected→hired`» y PA5 que `rejected` es final. Se
+    resolvió: `hired` solo desde `shortlisted`; `rejected` desde `under_review` y `shortlisted`; `applied`
+    solo pasa a `under_review` (no se rechaza sin abrirla). Repetir el estado actual es 409, no idempotente.
+  - **Retirar:** idempotente (204 sobre `withdrawn`), a diferencia de las demás transiciones. Retirar o ser
+    rechazado es definitivo para esa oferta: **no se puede reaplicar** (`ya_aplicaste`).
+  - **Códigos nuevos:** `sin_permiso`, `empresa_no_verificada`, `membresia_vencida`, `ya_tiene_empresa`,
+    `empresa_duplicada`, `nit_inmutable`, `ultimo_administrador`, `invitacion_invalida`,
+    `oferta_con_aplicaciones`, `confidencial_inmutable`, `oferta_propia`, `oferta_incompleta` (con `fields`),
+    `consentimiento_requerido`, `campo_no_permitido`, `parametro_no_permitido`, `limite_de_registros`.
+    AP5 («409/404») se resolvió con 404 para toda oferta no visible.
+  - **Roles:** `recruiter` recibe los 7 permisos de oferta/aplicación/favoritos; `company_admin` suma
+    `company.update` y `company.invite`; `admin` solo `company.verify` y **no** lee aplicaciones. Las lecturas
+    de ofertas del reclutador piden `offer.update`. RB2 hablaba de `offer.manage`: no existe, son los
+    permisos granulares.
+  - **Una persona, una empresa** (índice único parcial); EM1 vuelve admin a quien crea la empresa con el rol
+    `company_admin`. Rutas `/company/...` en singular: la empresa sale de la membresía.
+  - **Consentimiento:** conjunto cerrado de 9 nombres; obligatorios `display_name`, `skills`, `experience`
+    (el plan decía «un mínimo» sin fijarlo); contacto = `email` y `phone`; `married_last_name` y segundo
+    apellido nunca. Lo compartido se ve **en vivo** (no hay copia) y la lista es inmutable.
+  - **Confidenciales:** la revelación es **por aplicación** (`company_revealed_at`) y permanente; no hay
+    filtro, búsqueda ni `q` de texto en `/offers` (la descripción puede nombrar a la empresa);
+    `is_confidential` queda congelado desde la primera publicación.
+  - **OF7:** no se versiona: desde la primera aplicación solo se editan `description`, `schedule`,
+    `vacancies` y `hiring_date`; el resto exige cerrar y crear otra.
+  - **Verificación y membresía:** además de `verify`, se agregan `unverify`, `GET /admin/companies` y
+    `PUT /admin/companies/{id}/membership` (sin ellos no hay forma de probar EM6/EM7 ni de cortar a un
+    reclutador falso); cada uno deja fila en `access_audit`. Membresía vencida o empresa sin verificar
+    **también bloquea el panel** (no solo publicar), para no dar datos de candidatos a una empresa no
+    vigente.
+  - **Invitaciones:** el token se devuelve **una vez** en la respuesta (no hay correo); atada al correo;
+    7 días; 404 igual en cinco casos de fallo; los límites son 20 por día y 50 pendientes.
+  - **Panel:** la lista solo trae `display_name`; el contacto y el resto, solo en el detalle. Auditoría:
+    una fila por lista y una por detalle/cambio. Los favoritos se marcan por aplicación y no hay listado
+    propio (`favorite=true`); se borran al retirar. La `note` de un cambio es interna, cifrada, y la
+    persona nunca la ve (AP7).
+  - **BO1/BO2:** las aplicaciones de quien borra su cuenta **no** se borran (BO2 las quiere en el panel):
+    pierden `applicant_id` y `shared_fields`. Exige `applicant_id` y `job_offers.created_by` nulables y
+    `changed_by` nulable en `db.md`. BO4 no necesita un `kind` nuevo.
+  - **Retención (decisión 5):** 90 días desde `closed_at` (la columna no existía), calculado al leer.
+  - **Límites (SX5), cifras elegidas:** 20 aplicaciones/persona/24 h, 20 ofertas/empresa/hora, 5 empresas
+    por persona y día, 10 aceptaciones de invitación por hora, 120 detalles por reclutador y hora. Topes de
+    cuerpo 16 KB (empresa) y 64 KB (oferta).
+  - **Cambios de esquema no previstos:** `tax_id` cifrado con hash (puede ser el DPI de una persona),
+    `external_applications`, `company_invitations.revoked_at`, nulabilidades arriba.
+  - **Catálogos:** `cities` admite `?state_id`; `zones` y `membership-types` no se sirven; la geografía es
+    solo Guatemala (decisión 9). El campo de oferta se llama `title` en la API y `name` en la tabla.
+  - **Fuera de la 5a pese a estar en el plan de 5a:** ninguna ruta para cerrar una empresa ni borrar al
+    único admin (queda 409 `ultimo_administrador`); sin notificaciones.
+  - **Huecos de `security.md` encontrados** (ver su sección de la Fase 5a): `married_last_name`, sesgo por el
+    nombre visible, `tax_id` en claro, texto de confidenciales, notas libres sin cifrar, roles globales
+    contra pertenencia por empresa, falta de canal de denuncia.

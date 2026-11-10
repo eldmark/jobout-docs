@@ -135,3 +135,42 @@ El dashboard muestra «Practica una entrevista» y, si hay una sesión `in_progr
 - `route-guard.ts` suma `/api/recruiters`, `/api/levels`, `/api/progress` y `/api/interviews` a las
   carpetas que responden 401 en JSON por sí mismas.
 - Todavía no hay audio: la sala de voz, el WebSocket y el avatar son de la Fase 4.
+
+## Ofertas y lado empresa (Fase 5a) — plan de rutas
+
+Plan, sin código todavía. Contrato en [api.md](api.md#ofertas-y-empresas-fase-5a). Todas las páginas son
+protegidas, con los textos en `lib/messages/es.ts` (tuteo) y los tres estados (cargando, vacío, error).
+
+**Candidato**
+
+| Página | Qué hace |
+|---|---|
+| `/offers` | Listado con filtros (profesión, departamento, municipio, contrato, salario, turno, sector, jerarquía) y «Cargar más» por cursor. Las confidenciales dicen «Empresa confidencial», sin logo ni nombre. No hay buscador de texto ni filtro por empresa |
+| `/offers/[id]` | Detalle y requisitos. «Aplicar» abre el diálogo de consentimiento: lista **cada** campo del conjunto cerrado con su casilla (nombre, skills y experiencia marcados y bloqueados como mínimo; contacto desmarcado), dice «Esto es lo que verá la empresa», avisa si la oferta es confidencial y que no se puede ampliar ni reaplicar, y el botón queda **deshabilitado** hasta marcar «Acepto compartir esto». Lo que la persona no tiene (p. ej. sin teléfono) sale como «No tienes teléfono en tu perfil» |
+| `/applications` | «Mis aplicaciones»: estado, fecha, historial (`history`) y qué compartí; la empresa solo aparece si la API la devuelve; retirar pide confirmación y avisa que es definitivo. Incluye la pestaña «Externas» (registro manual y privado: crear, editar, borrar) |
+
+**Reclutador** (se muestran solo si `GET /me` trae `company_admin` o `recruiter`)
+
+| Página | Qué hace |
+|---|---|
+| `/company` | Crear la empresa si no hay (`/me` sin rol: formulario), o ver su estado: banner «En verificación» (sin `verified_at`) o «Membresía vencida» con qué hacer (FC8). Editar datos; los `company_admin` ven reclutadores e invitaciones (la invitación muestra el enlace/token **una sola vez**, con «Copiar») |
+| `/company/offers` | Mis ofertas con estado y número de aplicaciones; crear. «Publicar» deshabilitado con el motivo si falta verificar, hay membresía vencida o la oferta está incompleta |
+| `/company/offers/new` · `/company/offers/[id]` | Formulario de oferta (catálogos con búsqueda, municipio dependiente del departamento, requisitos), publicar, pausar, cerrar, borrar un borrador. Con aplicaciones, los campos congelados salen de solo lectura. Aviso fijo en confidenciales: «No pongas el nombre de tu empresa en el texto» |
+| `/company/offers/[id]/applications` | Lista de aplicaciones (nombre, estado, favorito, filtro por estado y favoritos, orden por fecha: **sin** más filtros ni orden) y panel lateral con el detalle compartido; cambiar de estado con confirmación (avisa que mover a «preseleccionado» revela la empresa en una confidencial); «candidato eliminado», «retirada» o «retención vencida» sin datos |
+
+**Administración de plataforma** (rol `admin`): `/admin/companies`, con la cola de empresas por verificar y
+la membresía.
+
+Reglas:
+
+- La capa servidor (`app/api/offers`, `applications`, `company/**`, `admin/**`, `invitations`) reenvía a
+  `core-api` con el token de las cookies, como el resto; solo deja pasar los códigos de error del contrato
+  y los campos de eco validados (`application_id`, `status`, `fields`, `Retry-After` entero).
+- **Los menús salen de `roles`/`permissions` de `/me`, pero eso es solo comodidad**: un candidato que abre
+  `/company` ve 404 de la API explicada, y un reclutador no ve el panel de otra empresa porque la API da 404.
+  `route-guard.ts` suma esas carpetas a las que responden 401 en JSON.
+- Los datos del candidato del panel viven solo en el estado de la página: sin `localStorage`, sin
+  `console.log`, sin analítica ni cache compartida, y se pintan como texto escapado, igual que las
+  descripciones de oferta (SX7).
+- Un 429 explica cuánto esperar (`Retry-After`) sin perder lo escrito. Los 403 `empresa_no_verificada` y
+  `membresia_vencida` tienen su pantalla propia, no un error genérico.

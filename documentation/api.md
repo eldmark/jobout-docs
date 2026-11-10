@@ -256,6 +256,623 @@ con zona. Los ids son UUID. Los formatos exactos quedan fijados por los tests de
 | 429 | `demasiados_intentos` (con `Retry-After`) |
 | 503 | `motor_no_disponible` |
 
+### Ofertas y empresas (Fase 5a)
+
+> **Contrato, todavía sin código.** Lo fija esta sección y los tests de la fase lo congelan
+> (`tests/companies.rs`, `tests/offers.rs`, `tests/applications.rs`, `tests/panel.rs`). Cubre las
+> HU-32 y HU-50 a HU-56. El matching (`sort=match`, puntaje) y la práctica de una oferta (HU-31) son
+> de la 5b: hasta entonces cualquier parámetro o campo que los nombre es **desconocido** y da 422.
+> Casos de verdad en [docs/working/fase5-ofertas-empresas.md](../docs/working/fase5-ofertas-empresas.md).
+
+Bajo `/api/v1`. Reglas comunes, además de las de «Reglas para todo endpoint» y las de la Fase 3:
+
+- **Nada es público.** Toda ruta es `Authenticated` o `Access::Permission("...")` (nuevo en la
+  tabla de rutas: exige token **y** el permiso, y responde 403 `sin_permiso` aunque el handler no lo
+  compruebe). Los permisos se leen de `role_permissions` en cada petición (la misma consulta que
+  detecta cuentas suspendidas), así que **quitar un rol corta el acceso en la petición siguiente**.
+- Errores: `{"error": "<código>", "message": "<texto en español>"}`, más campos extra solo donde se
+  indica. Ningún error, log ni traza lleva datos del candidato, el texto de una oferta ni el nombre
+  de una empresa confidencial. Los 422 usan un texto fijo por causa y no repiten lo enviado.
+- **Una empresa es de quien pertenece a ella.** Las rutas del reclutador son `/company/...`
+  (singular: «mi empresa»); la empresa sale de la membresía de quien llama, nunca del path ni del
+  cuerpo. Un recurso (oferta, aplicación, invitación, reclutador) de **otra** empresa, inexistente o
+  con id mal formado da siempre **404 `no_encontrado`**, con cuerpo idéntico en los tres casos (SX6).
+  Una persona con el permiso pero sin empresa recibe también 404 `no_encontrado`.
+- **Orden general de validación** (cada ruta lo concreta): 401 → 403 `cuenta_no_disponible` → 403
+  `sin_permiso` → 413 → 422 del cuerpo o de la consulta (los ids del **cuerpo** que no son UUID
+  también son 422) → 404 del recurso → 403 de la empresa (`empresa_no_verificada`,
+  `membresia_vencida`) → 409 de estado → 422 de reglas de negocio que dependen del recurso
+  (`oferta_incompleta`) → 429.
+- **Cuerpos cerrados.** Un campo desconocido en el cuerpo → 422 `campo_no_permitido`; un parámetro
+  desconocido en la consulta → 422 `parametro_no_permitido` (ver «No discriminación»). Valor inválido
+  de un campo o parámetro conocido → 422 `datos_invalidos`.
+- **Topes de cuerpo:** 8 KB (global) salvo `POST`/`PUT /company` (16 KB) y `POST`/`PUT
+  /company/offers` (64 KB), que lo declaran con `RouteSpec.body_limit`. Excederlo → 413.
+- **Textos de usuario como dato.** Títulos, descripciones y notas se guardan tal cual, se recortan de
+  espacios y se devuelven como texto plano en JSON: nunca se interpretan como HTML ni se «limpian»
+  en el servidor; el frontend los pinta escapados (OF10, SX7). Longitudes en caracteres Unicode.
+- Ids UUID, fechas ISO 8601 con zona (las `date` de oferta, `YYYY-MM-DD`). Listados
+  `{items: [...], next_cursor}` con cursor opaco y `limit` 1–50 (defecto 20); `limit`, `cursor` o
+  `status` inválidos → 422 `datos_invalidos`.
+
+#### Roles y permisos
+
+| Rol | Permisos |
+|---|---|
+| `applicant` | ninguno propio (las rutas de candidato son solo `Authenticated`). Todo registro lo recibe |
+| `recruiter` | `offer.create` · `offer.update` · `offer.publish` · `offer.close` · `application.read` · `application.review` · `favorite.manage` |
+| `company_admin` | los de `recruiter` + `company.update` · `company.invite` |
+| `admin` | `company.verify` **y nada más**: el admin de plataforma no lee aplicaciones ni ofertas ajenas |
+
+- Una misma cuenta es candidato **y** reclutador (decisión 10): conserva `applicant` y suma
+  `company_admin` o `recruiter`. Un reclutador **sí** usa sus rutas de candidato, y sus datos de
+  candidato **nunca** aparecen en el panel de su propia empresa (no puede aplicar a las ofertas de
+  su empresa: 409 `oferta_propia`).
+- **Una persona pertenece a una sola empresa** en la 5a (índice único parcial sobre
+  `company_recruiters.user_id` donde `deleted_at` es nulo).
+- **Los roles de empresa solo se dan por dos caminos:** crear la empresa (`company_admin`) y aceptar
+  una invitación (`company_admin` o `recruiter`). `admin` no se da por ninguna ruta (siembra o
+  consola): nadie puede escalarse (RO6). Un rol de empresa sin fila en `company_recruiters` no sirve
+  para nada (404).
+- `GET /me` agrega `"roles": ["applicant", "company_admin"]` (códigos) y `"permissions":
+  ["offer.create", ...]`, ambos ordenados alfabéticamente y sin ids. Es lo que usa el frontend para
+  elegir menús; **no** sustituye al servidor, que comprueba en cada ruta.
+
+#### Catálogos nuevos (paso 1)
+
+`GET /catalogs/{nombre}` suma `countries`, `states`, `cities`, `salary-ranges`, `working-shifts`,
+`contract-types`, `employment-sectors` y `driver-licenses`, con la misma forma y protección
+(`[{id, code, name}]`, solo activos; `states` y `cities` agregan `country_id` y `state_id`).
+`cities` admite `?state_id=<uuid>` (un `state_id` inválido → 422) porque trae todos los municipios.
+`zones` y `membership-types` **no** se sirven. `salary-ranges` sale ordenado por monto, en
+quetzales (`GTQ`).
+
+#### Empresas, reclutadores e invitaciones
+
+| Ruta | Acceso | Cuerpo → respuesta |
+|---|---|---|
+| `POST /companies` | `Authenticated` | `CompanyInput` → 201 `Company` · 409 `ya_tiene_empresa` · 409 `empresa_duplicada` · 422 · 429 |
+| `GET /company` | `Authenticated` + membresía | → 200 `Company` · 404 |
+| `PUT /company` | `company.update` | `CompanyInput` completo, idempotente → 204 · 409 `nit_inmutable` · 422 |
+| `GET /company/recruiters` | `company.invite` | `?limit&cursor` → 200 `{items: [{id, display_name, position, role, joined_at}], next_cursor}` |
+| `DELETE /company/recruiters/{id}` | `company.invite` | → 204 · 404 · 409 `ultimo_administrador` |
+| `POST /company/invitations` | `company.invite` | `{email, role}` → 201 `Invitation` (con `token`, **una sola vez**) · 409 `ya_tiene_empresa` · 422 · 429 |
+| `GET /company/invitations` | `company.invite` | `?limit&cursor` → 200 `{items: [Invitation sin token], next_cursor}` |
+| `DELETE /company/invitations/{id}` | `company.invite` | → 204 (revoca) · 404 |
+| `POST /invitations/accept` | `Authenticated` | `{token}` → 200 `{company: {id, name}, role}` · 404 `invitacion_invalida` · 409 `ya_tiene_empresa` · 429 |
+
+```jsonc
+// CompanyInput (POST /companies, PUT /company). Todo lo demás → 422 campo_no_permitido
+{ "name": "Café Nuevo S.A.", "tax_id": "1234567-8", "website": "https://cafenuevo.example",
+  "phone": "+502 5555 0000", "description": "Tostamos y vendemos café.",
+  "country_id": "uuid", "employment_sector_id": "uuid" }
+// website, phone y description pueden omitirse o ir null
+
+// Company (POST /companies → 201, GET /company → 200)
+{ "id": "uuid", "name": "Café Nuevo S.A.", "tax_id": "1234567-8", "website": "...", "phone": "...",
+  "description": "...", "country_id": "uuid", "employment_sector_id": "uuid",
+  "verified": false, "verified_at": null,
+  "membership": null,   // o {"type": "enterprise", "start_date": "2026-11-01", "expiration_date": "2027-11-01", "status": "active"}
+  "my_role": "company_admin", "created_at": "..." }
+
+// Invitation (POST → 201 con token; GET → sin token)
+{ "id": "uuid", "role": "recruiter", "status": "pending", "expires_at": "...", "created_at": "...",
+  "token": "…43 caracteres base64url…" }   // status: pending | used | expired
+```
+
+- **Límites de `CompanyInput`:** `name` 2–120 · `tax_id` 4–20 caracteres de letras, dígitos, guion y
+  espacio (se normaliza: mayúsculas, sin guiones ni espacios, antes de comparar) · `website`
+  `https://` de hasta 200 · `phone` hasta 20 · `description` hasta 2000 · `country_id` y
+  `employment_sector_id` de sus catálogos y activos (id inactivo o desconocido → 422, como en el perfil).
+- **Crear (`POST /companies`)**, orden: cuerpo (422) → la persona ya tiene empresa (409
+  `ya_tiene_empresa`) → NIT ya usado por otra empresa (409 `empresa_duplicada`, texto genérico) →
+  límite (429: 5 intentos por persona y día). En **una transacción** crea la empresa **sin verificar**
+  (`verified_at` nulo), el `company_recruiters` y el rol `company_admin`. Sin verificar no publica.
+  El NIT se guarda **cifrado** más un HMAC para la unicidad; solo lo ven los de la empresa y el
+  admin de plataforma.
+- `PUT /company` no cambia el NIT de una empresa ya verificada: si difiere → 409 `nit_inmutable`.
+  Cambiar el `name` de una verificada **no** quita la verificación (queda como riesgo aceptado).
+- `my_role` es `company_admin` o `recruiter`. `membership` es `null` si nunca tuvo; `status` es
+  `active` o `expired` (calculado por fechas, no por la columna). `verified` es `verified_at != null`.
+- **Reclutadores**: `display_name` es nombre + primer apellido; **nunca** correo, teléfono, ni
+  `married_last_name`. `DELETE /company/recruiters/{id}` (también uno mismo para salir): borra la fila
+  `company_recruiters` (`deleted_at`), le quita los roles de empresa (efecto en la petición siguiente) y
+  **no** toca a la empresa, sus ofertas ni el historial de decisiones. Si era el único `company_admin`
+  → 409 `ultimo_administrador`. Quitar a quien sigue siendo candidato no afecta su cuenta (EM9).
+- **Invitaciones.** `role` es `recruiter` o `company_admin`; `email` hasta 254 (solo se guarda su
+  HMAC, el mismo de `users.email_hash`: la invitación solo sirve para **esa** cuenta). El `token` son
+  256 bits aleatorios en base64url, **se devuelve una única vez** en el 201 (no hay correo en la 5a: el
+  admin se lo pasa a la persona) y en la base solo queda su SHA-256 (`token_hash`). Vigencia **7 días**.
+  **Un solo uso**: aceptar marca `used_at` con un `UPDATE ... WHERE used_at IS NULL AND expires_at >
+  now()`, así dos aceptaciones simultáneas dejan una. Revocar la deja inservible. Máximo 20
+  invitaciones por empresa y día y 50 pendientes (429/422); invitar a un correo que ya es de otra
+  empresa responde igual que a uno nuevo (no revela cuentas): la 409 sale solo al aceptar.
+- `POST /invitations/accept`, orden: cuerpo (422) → límite (429: 10 intentos por persona y hora) →
+  token desconocido, vencido, usado, revocado **o de otro correo** → 404 `invitacion_invalida`
+  (misma respuesta en los cinco casos) → la persona ya tiene empresa → 409 `ya_tiene_empresa`.
+  Crea `company_recruiters` y el rol en una transacción. No revela datos de la empresa antes de aceptar.
+- **EM9 / borrado de cuenta:** un `company_admin` único no puede borrar su cuenta (`DELETE /me` →
+  409 `ultimo_administrador`) mientras la empresa exista. En la 5a no hay ruta para cerrar una
+  empresa: lo resuelve el equipo (ver «Pendiente»).
+
+#### Verificación de la empresa y membresía (`company.verify`)
+
+Solo el rol `admin` de plataforma. Es manual (decisiones 1 y 11): se revisa dominio de correo y
+documento fuera de la API y se marca aquí. **Nunca un `UPDATE` a mano.**
+
+| Ruta | Cuerpo → respuesta |
+|---|---|
+| `GET /admin/companies` | `?verified=true\|false&limit&cursor` → 200 `{items: [{id, name, tax_id, website, created_at, verified_at, creator_email_domain, recruiters_count}], next_cursor}` (más antiguas primero) |
+| `POST /admin/companies/{id}/verify` | → 204, idempotente · 404 · 403 `sin_permiso` si el admin es miembro de esa empresa |
+| `POST /admin/companies/{id}/unverify` | → 204, idempotente · 404 |
+| `PUT /admin/companies/{id}/membership` | `{membership_type: "enterprise", start_date, expiration_date}` → 204 · 404 · 422 |
+
+- `creator_email_domain` es solo lo que va tras la `@` del correo de quien creó la empresa (para
+  contrastarlo con el sitio); nunca el correo completo. La lista y cada acción dejan **una fila en
+  `access_audit`** (`company.list`, `company.verify`, `company.unverify`, `company.membership_set`;
+  `resource_type: company`, `resource_id` = la empresa o nulo en la lista; sin el contenido; IP
+  hasheada). Si el insert de auditoría falla, la operación falla (500): no hay acción sin rastro.
+  Repetir `verify` sobre una verificada responde 204 **sin** una segunda fila ni mover `verified_at`.
+- `unverify` limpia `verified_at`: sus ofertas publicadas dejan de ser visibles y de aceptar
+  aplicaciones (igual que EM7) y el panel responde 403 `empresa_no_verificada`; los borradores se
+  conservan. Es la salida si se descubre un reclutador falso.
+- **Membresía:** `membership_type` es el `code` de `membership_types` (solo `enterprise` en la 5a; no hay
+  cobro). `PUT` **reemplaza** la vigente (la anterior queda `cancelled`). `expiration_date` ≥
+  `start_date` y a lo sumo 400 días después; fuera de eso → 422 `datos_invalidos`. Verificar no crea
+  membresía: una empresa verificada sin membresía vigente no publica.
+
+**Efectos de la vigencia (EM6, EM7).** «Vigente» = `start_date ≤ hoy ≤ expiration_date` (fecha UTC) y
+`status = active`. Con la empresa verificada **y** la membresía vigente:
+
+| Acción | Sin verificar | Membresía no vigente |
+|---|---|---|
+| Crear y editar borradores, ver su panel de ofertas | sí | sí |
+| Publicar (`publish`), reanudar una pausada | 403 `empresa_no_verificada` | 403 `membresia_vencida` |
+| Pausar, cerrar | sí | sí |
+| Ofertas ya publicadas visibles para candidatos y aceptando aplicaciones | **no** | **no** |
+| Panel: ver aplicaciones, mover estados, favoritos | 403 `empresa_no_verificada` | 403 `membresia_vencida` |
+
+Las ofertas **conservan** su estado: al renovar, las `published` vuelven a ser visibles solas.
+Mientras tanto las aplicaciones existentes siguen en su estado y el candidato las sigue viendo en
+«mis aplicaciones». Se comprueban en cada petición, no en una tarea. Si la empresa no está verificada
+**y** la membresía no es vigente, gana `empresa_no_verificada`.
+
+#### Ofertas del reclutador
+
+Todas bajo `/company/offers`, de **mi** empresa. Las lecturas piden `offer.update`.
+
+| Ruta | Permiso | Cuerpo → respuesta |
+|---|---|---|
+| `POST /company/offers` | `offer.create` | `OfferInput` → 201 `OfferDetail` en `draft` · 422 · 429 |
+| `GET /company/offers` | `offer.update` | `?limit&cursor&status` → 200 `{items: [OfferRow], next_cursor}` |
+| `GET /company/offers/{id}` | `offer.update` | → 200 `OfferDetail` · 404 |
+| `PUT /company/offers/{id}` | `offer.update` | `OfferInput` completo, idempotente → 204 · 404 · 409 · 422 |
+| `DELETE /company/offers/{id}` | `offer.update` | → 204 · 404 · 409 `estado_invalido` (solo un `draft` sin aplicaciones) |
+| `POST /company/offers/{id}/publish` | `offer.publish` | → 200 `{id, status, publication_date}` · 403 · 404 · 409 · 422 `oferta_incompleta` |
+| `POST /company/offers/{id}/pause` | `offer.publish` | → 204 · 404 · 409 `estado_invalido` |
+| `POST /company/offers/{id}/close` | `offer.close` | → 204 · 404 · 409 `estado_invalido` |
+
+```jsonc
+// OfferInput. Cualquier otro campo (edad, género, estado civil, featured, status…) → 422 campo_no_permitido
+{ "title": "Desarrollador backend", "description": "Construirás APIs en Rust...",
+  "is_confidential": false,
+  "is_experience_required": true, "required_experience": 2,      // años; null si no se exige
+  "main_language_id": "uuid", "schedule": "Lunes a viernes, 8 a 17", "required_availability_to_travel": false,
+  "vacancies": 2, "hiring_date": "2027-02-01",
+  "profession_id": "uuid", "employment_sector_id": "uuid", "job_hierarchy_id": "uuid",
+  "minimum_academic_level_id": "uuid", "state_id": "uuid", "city_id": "uuid",
+  "salary_range_id": "uuid", "working_shift_id": "uuid", "contract_type_id": "uuid",
+  "skills": [ { "skill_id": "uuid", "is_required": true, "min_level": "intermediate" } ],
+  "languages": [ { "language_id": "uuid", "min_proficiency": "intermediate" } ],
+  "driver_license_ids": [] }
+
+// OfferDetail = OfferInput + lo calculado por el servidor
+{ "id": "uuid", "status": "draft", "required_driver_license": false,
+  "publication_date": null, "closed_at": null, "created_at": "...", "updated_at": "...",
+  "applications_count": 0, "created_by": { "id": "uuid", "display_name": "Ana P." }, /* …OfferInput… */ }
+
+// OfferRow (listado)
+{ "id": "uuid", "title": "...", "status": "published", "is_confidential": true, "vacancies": 2,
+  "publication_date": "2026-11-12", "applications_count": 14, "created_at": "..." }
+
+// 422 oferta_incompleta
+{ "error": "oferta_incompleta", "message": "Faltan datos para publicar la oferta.",
+  "fields": ["description", "requirements"] }
+```
+
+- **Campos.** Solo `title` es obligatorio al crear (un borrador puede estar casi vacío); el resto
+  puede omitirse o ir `null`. `title` 3–120 · `description` 20–5000 (existe **una sola vez**, OF2) ·
+  `required_experience` 0–50, obligatorio si `is_experience_required` es `true` y `null` si es `false` ·
+  `schedule` hasta 120 · `vacancies` 1–999 · `hiring_date` hoy o futura, a lo sumo en 2 años ·
+  `skills` hasta 30 (sin skill repetida), `languages` hasta 5 (sin idioma repetido),
+  `driver_license_ids` hasta 5 · `min_level` es `beginner`·`intermediate`·`advanced`·`expert` y
+  `min_proficiency` es `native`·`advanced`·`intermediate`·`basic` (los enums del perfil). Todos los
+  `*_id` salen de sus catálogos y deben estar activos (id inactivo o desconocido → 422, OF11/OF12), y
+  `city_id` debe ser de `state_id` (422 si no). **No hay** columnas JSON: los requisitos van en
+  `job_offer_skills`, `job_offer_languages` y `job_offer_driver_licenses` (OF3).
+- **Derivados, no enviables:** `required_driver_license` es verdadero si hay licencias;
+  `publication_date` la pone el servidor en la **primera** publicación; `featured` es de plataforma y no
+  se envía; `status` solo cambia por las rutas de transición; `company_visible` es
+  `is_confidential = false` y no sale de la API.
+- **Estados** (OF6): `draft → published ⇄ paused`, `published|paused → closed`. `closed` es final:
+  `publish` sobre una cerrada → 409 `estado_invalido`; un `draft` no se cierra (se borra). `publish` solo
+  desde `draft` o `paused`, `pause` solo desde `published`, `close` desde `published` o `paused`;
+  cualquier otro caso → 409 `estado_invalido` sin tocar nada, incluido repetir la misma transición (no
+  son idempotentes; dos simultáneas dejan una y la otra recibe 409).
+- **`publish`**, orden: 404 → 409 `estado_invalido` → 403 `empresa_no_verificada` → 403
+  `membresia_vencida` → 422 `oferta_incompleta` → 429 (el límite de 20 ofertas por empresa y hora, SX5,
+  se cuenta en `POST /company/offers`, no aquí; `publish` no consume cupo). Mínimo para publicar (OF5): `title`,
+  `description`, `vacancies`, `profession_id`, `state_id`, `city_id` y **al menos un requisito** (skill,
+  idioma o licencia); `fields` lista los que faltan (`requirements` agrupa los tres).
+  `hiring_date` pasada también es `oferta_incompleta`.
+- **Editar (`PUT`).** Reemplazo completo. En `closed` → 409 `estado_invalido`. **Congelado desde la primera
+  aplicación recibida** (OF7): todo menos `description`, `schedule`, `vacancies` y `hiring_date`; si la
+  oferta ya tiene aplicaciones y el cuerpo cambia algo congelado → 409 `oferta_con_aplicaciones` (para
+  cambiar los requisitos se cierra y se crea otra: no se versiona). **`is_confidential` queda
+  congelado desde la primera publicación** → 409 `confidencial_inmutable`, para no deanonimizar ni
+  esconder una empresa a posteriori.
+- **Cierre automático (OF9):** una tarea diaria cierra las `published`/`paused` cuya `hiring_date` ya
+  pasó (fecha UTC) y fija `closed_at`. Cerrar a mano también fija `closed_at`. Cerrar **no** toca las
+  aplicaciones existentes (siguen en el panel mientras dure la retención).
+- `OfferRow`/`GET` filtran por `status`; un `offer` de otra empresa → 404. Cada petición del listado
+  hace un número fijo de consultas (sin N+1, CA7).
+
+#### Ofertas para candidatos
+
+`Authenticated`, sin permiso de rol (un reclutador también puede mirar ofertas). Visible =
+`status = published` **y** empresa verificada y activa **y** membresía vigente. Todo lo demás
+(borrador, pausada, cerrada, empresa sin verificar o con membresía vencida, inexistente, id mal
+formado) → **404 `no_encontrado` idéntico** (CA5).
+
+| Ruta | Cuerpo → respuesta |
+|---|---|
+| `GET /offers` | `?limit&cursor&sort&profession_id&state_id&city_id&contract_type_id&salary_range_id&working_shift_id&employment_sector_id&job_hierarchy_id` → 200 `{items: [OfferSummary], next_cursor}` |
+| `GET /offers/{id}` | → 200 `OfferPublic` · 404 |
+
+```jsonc
+// OfferSummary
+{ "id": "uuid", "title": "Desarrollador backend", "confidential": false,
+  "company": { "id": "uuid", "name": "Café Nuevo S.A.", "website": "https://..." },  // null si confidential
+  "profession": { "id": "uuid", "code": "software_engineer", "name": "..." },
+  "employment_sector": { "id": "uuid", "code": "...", "name": "..." },
+  "state": { "id": "uuid", "code": "...", "name": "Guatemala" }, "city": { "id": "uuid", "code": "...", "name": "Mixco" },
+  "contract_type": { }, "salary_range": { }, "working_shift": { },   // cada uno {id, code, name} o null
+  "vacancies": 2, "publication_date": "2026-11-12",
+  "my_application": { "id": "uuid", "status": "applied" } }            // null si no apliqué
+
+// OfferPublic = OfferSummary + requisitos
+{ /* …OfferSummary… */ "description": "...", "schedule": "...", "hiring_date": "2027-02-01",
+  "required_experience": 2, "required_availability_to_travel": false, "required_driver_license": false,
+  "main_language": { }, "job_hierarchy": { }, "minimum_academic_level": { },
+  "skills": [ { "skill": { "id": "uuid", "code": "rust", "name": "Rust" }, "is_required": true, "min_level": "intermediate" } ],
+  "languages": [ { "language": { }, "min_proficiency": "intermediate" } ],
+  "driver_licenses": [ { } ] }
+```
+
+- Orden fijo: `publication_date` descendente, con `id` de desempate. `sort` acepta solo `recent`
+  (defecto) y `oldest`; `sort=match` es de la 5b y hoy → 422 `datos_invalidos`. Todos los filtros son
+  ids de catálogo; cada uno puede venir una sola vez.
+- **Nunca** se devuelve `created_by`, datos de reclutadores (nombre, correo), `status`,
+  `applications_count`, `featured` ni el `tax_id`/teléfono de la empresa (CA4).
+- **Confidencial.** `company` es `null` y `confidential` es `true`; queda visible el sector, la
+  ubicación y todos los requisitos, que ya son públicos. No existe filtro, búsqueda ni orden por empresa
+  (con uno se deanonimizaría) y `q` de texto libre tampoco existe en la 5a, porque la descripción puede
+  nombrar a la empresa. El texto de `description` lo escribe quien publica: el servidor **no** puede
+  detectar un nombre ahí (ver `security.md`).
+
+#### Aplicar, ver y retirar (candidato)
+
+`Authenticated`. Todo filtra por dueño: una aplicación ajena, inexistente o con id mal formado → 404.
+
+| Ruta | Cuerpo → respuesta |
+|---|---|
+| `POST /offers/{id}/applications` | `{consent, shared_fields}` → 201 `Application` · 404 · 409 `ya_aplicaste` · 409 `oferta_propia` · 422 · 429 |
+| `GET /me/applications` | `?limit&cursor&status` → 200 `{items: [ApplicationSummary], next_cursor}` (por `applied_at` descendente) |
+| `GET /me/applications/{id}` | → 200 `Application` con `history` · 404 |
+| `POST /me/applications/{id}/withdraw` | → 204 · 404 · 409 `estado_invalido` |
+
+##### El contrato de consentimiento (HU-52, decisión 2)
+
+Es la primera vez que los datos de una persona los ve otra. Reglas, de la más a la menos
+importante:
+
+1. **El consentimiento es explícito, por aplicación y nunca se asume.** `consent` debe ser el booleano
+   `true`. Falta, `false`, `null` o de otro tipo (`"true"`, `1`) → 422 `consentimiento_requerido`, sin
+   crear nada. No hay valor por defecto, ni «recordar mi elección», ni consentimiento heredado de una
+   aplicación anterior.
+2. **`shared_fields` es una lista de nombres de un conjunto cerrado**, no valores. Los nombres son:
+
+   | Nombre | Qué ve el reclutador | Obligatorio |
+   |---|---|---|
+   | `display_name` | nombre y primer apellido | **sí** |
+   | `skills` | skills con `level` y `years_of_experience` | **sí** |
+   | `experience` | experiencias: empresa, cargo, fechas (sin la descripción) | **sí** |
+   | `experience_descriptions` | la `description` de cada experiencia | no |
+   | `languages` | idiomas con su nivel | no |
+   | `education` | último nivel académico, profesión y jerarquía del perfil | no |
+   | `profile_description` | la descripción profesional del perfil | no |
+   | `email` | correo (**contacto**) | no |
+   | `phone` | teléfono (**contacto**) | no |
+
+   El mínimo (`display_name`, `skills`, `experience`) siempre va: sin él el reclutador no tiene con
+   qué evaluar y la aplicación se reduciría a un nombre. Cualquier nombre fuera de la tabla, repetido,
+   o una lista que no sea de cadenas → 422 `datos_invalidos`; **faltan** los obligatorios → 422
+   `datos_invalidos`. Hasta 9 elementos (el cuerpo cabe en el tope de 8 KB). Los nombres de la 5b
+   (`match_score`, `interview_score`) hoy son desconocidos.
+3. **Qué puede ver el reclutador, jamás más que eso:** solo lo marcado. Lo no marcado **no viaja** en la
+   respuesta (la clave no existe, no es `null`). **Nunca**, marque lo que marque la persona: el archivo
+   del CV (no hay ruta para ello, ni URL firmada ni `storage_key`), dirección, documento de identidad,
+   fecha de nacimiento ni edad, género, estado civil (ni `married_last_name`, ni segundo apellido),
+   foto, transcripciones ni resultados de entrevistas, el plan, ni el id permanente de la persona.
+4. **Contacto solo si se comparte** (`email`, `phone`): sin ellos el reclutador no tiene forma de
+   escribirle, y la plataforma no ofrece chat. Es decisión de la persona, por aplicación.
+5. **Se ve en vivo, no es una copia.** `shared_fields` guarda *nombres* (para poder auditar qué aceptó),
+   y el panel lee el perfil actual filtrado por esos nombres. Si la persona borra un teléfono, deja de
+   verse; si lo cambia, se ve el nuevo. Lo que se compartió se deja de ver al retirar la aplicación,
+   al borrar la cuenta, o a los **90 días de cerrada la oferta** (retención, decisión 5). **La lista es
+   inmutable**: no hay ruta para ampliar lo compartido después, y compartir más obliga a retirar (y no
+   se puede reaplicar).
+   `consented_at` se fija en el servidor, nunca viene del cliente.
+6. **Una aplicación nunca comparte con nadie más que la empresa de esa oferta,** ni siquiera con otros
+   reclutadores de otra empresa ni con el admin de plataforma.
+
+##### Aplicar (`POST /offers/{id}/applications`)
+
+Orden: cuerpo (422 `datos_invalidos`; `consent` mal tipado → `consentimiento_requerido`) →
+`consent` verdadero (422 `consentimiento_requerido`) → `shared_fields` válidos (422 `datos_invalidos`)
+→ la oferta existe y es visible, tal como la ve el listado (404 `no_encontrado`, igual para ajena,
+borrador, cerrada, pausada, de empresa vencida o id mal formado) → la oferta **es de mi propia
+empresa** (409 `oferta_propia`) → ya apliqué (409 `ya_aplicaste` con `application_id`) → límite
+(429). Si la oferta se cierra o se pausa entre que la persona abrió la pantalla y envió, el 404 es el
+mismo (AP5): no hay un código distinto para «cerrada».
+
+- **Una sola vez por oferta**, para siempre: `UNIQUE(applicant_id, job_offer_id)`. Un segundo `POST`, o
+  uno tras haber **retirado** o haber sido rechazada, → 409 `ya_aplicaste`
+  (`{"error": "ya_aplicaste", "message": "...", "application_id": "uuid"}`), sin segunda fila. Dos
+  simultáneas dejan **una**; la otra recibe `ya_aplicaste` (AP3, AP4). Reaplicar tras retirar no existe.
+- **Límite (SX5):** 20 aplicaciones creadas por persona en 24 horas móviles (cuentan las retiradas) →
+  429 `demasiados_intentos` con `Retry-After`. Las rechazadas por 409 no cuentan.
+- Crea en **una transacción** la aplicación (`applied`), el evento `null → applied` (`changed_by` = la
+  persona) y el `consented_at`. No envía correo ni avisa a nadie.
+
+```jsonc
+// POST /offers/{id}/applications
+{ "consent": true, "shared_fields": ["display_name", "skills", "experience", "email"] }
+
+// 201 Application (GET /me/applications/{id} es igual, con history; ApplicationSummary no lleva history ni shared_fields)
+{ "id": "uuid", "status": "applied", "applied_at": "...", "status_changed_at": "...",
+  "consented_at": "...", "shared_fields": ["display_name", "skills", "experience", "email"],
+  "offer": { "id": "uuid", "title": "Desarrollador backend", "status": "published",   // published | paused | closed
+             "confidential": true,
+             "company": null,   // {id, name, website} solo si no es confidencial o ya se reveló
+             "state": { }, "city": { } },
+  "history": [ { "status": "applied", "at": "..." } ] }
+```
+
+##### Ofertas confidenciales (HU-55, decisión 3)
+
+- La oferta se ve y se aplica **sin empresa**: en el listado, el detalle, la aplicación, «mis
+  aplicaciones» y **en cualquier error** (los textos de error nunca nombran empresa). No hay otra
+  ruta que la devuelva.
+- **Se revela cuando el reclutador mueve esa aplicación a `shortlisted`**, no antes: en ese momento se
+  fija `company_revealed_at` y desde entonces `offer.company` trae `{id, name, website}` **en la
+  aplicación de esa persona** (en `GET /me/applications` y `/{id}`). La revelación es **por aplicación**:
+  el listado público y las demás personas siguen sin ver la empresa. Una vez revelada no se esconde otra
+  vez, aunque después pase a `rejected` o la persona retire.
+- **No se revela** en `applied`, `under_review`, `rejected` (si nunca fue `shortlisted`) ni `withdrawn`;
+  tampoco cuando `hired` llega sin pasar por `shortlisted` (no puede: ver la máquina de estados).
+- Lo que la persona **sí** sabe antes de aplicar: título, descripción, requisitos, sector, ubicación,
+  salario y contrato. Es la apuesta que ya declaran los riesgos de la fase, y la pantalla de
+  aplicar la dice con todas las letras.
+- Al reclutador **sí** se le muestra siempre su propia oferta con el aviso «confidencial»: la oferta es
+  confidencial solo frente a candidatos.
+
+##### Máquina de estados de una aplicación
+
+```
+(aplicar) ──► applied ──► under_review ──► shortlisted ──► hired
+                 │            │               │
+                 │            └──► rejected ◄─┘
+   applied | under_review | shortlisted ──► withdrawn   (solo la persona)
+```
+
+| De | A | Quién |
+|---|---|---|
+| — | `applied` | la persona, al aplicar |
+| `applied` | `under_review` | reclutador (`application.review`) |
+| `under_review` | `shortlisted` | reclutador (`application.review`) — revela la empresa si es confidencial |
+| `under_review` | `rejected` | reclutador |
+| `shortlisted` | `hired` | reclutador |
+| `shortlisted` | `rejected` | reclutador |
+| `applied`, `under_review`, `shortlisted` | `withdrawn` | **solo** la persona |
+
+`hired`, `rejected` y `withdrawn` son **finales** (PA5): ninguna otra transición. El reclutador no puede
+retirar y la persona no puede mover nada más que a `withdrawn`. No hay salto de `applied` a
+`shortlisted`, `rejected` ni `hired`, ni de `rejected` a `hired` (la cadena del plan quedaba ambigua y se
+resolvió así). Cualquier transición que no está en la tabla, o repetir el estado actual → 409
+`estado_invalido` con el estado vigente (`{"error": "estado_invalido", "message": "...", "status":
+"applied"}`) sin tocar nada. Cada transición que sí ocurre escribe en **la misma transacción** una fila
+en `job_application_events` (`from_status`, `to_status`, `changed_by`, `note`, `created_at`) y actualiza
+`status`/`status_changed_at` con `UPDATE ... WHERE status = <de>`: dos movimientos simultáneos dejan uno.
+`hired` no cierra la oferta ni descuenta vacantes (lo decide quien publica).
+
+**Retirar** (`POST /me/applications/{id}/withdraw`): desde `applied`, `under_review` o `shortlisted` →
+204; sobre una ya `withdrawn` → 204 (idempotente, sin segundo evento); desde `hired` o `rejected` → 409
+`estado_invalido`. Al retirar, el panel deja de mostrar lo compartido (AP8) y se borra el favorito de
+la empresa sobre esa persona si no le queda otra aplicación viva con ella. El historial queda.
+
+**Lo que la persona ve del historial:** `history` = `[{status, at}]` en orden cronológico. **Nunca** el
+`changed_by`, la `note` ni qué reclutador decidió. El motivo de un rechazo no existe para la persona en
+la 5a (AP7): la `note` es interna del reclutador.
+
+#### Registro de aplicaciones externas (HU-32, decisión 6)
+
+Manual y **privado**: lo que la persona anota de aplicaciones hechas fuera de la plataforma. Nadie más
+lo ve ni se comparte con ninguna empresa; no es una aplicación (no pasa por la máquina de estados ni
+por el consentimiento). `Authenticated`, filtra por dueño (ajeno, inexistente o id mal formado → 404).
+
+| Ruta | Cuerpo → respuesta |
+|---|---|
+| `POST /me/external-applications` | `ExternalInput` → 201 `External` · 409 `limite_de_registros` · 422 |
+| `GET /me/external-applications` | `?limit&cursor&status` → 200 `{items: [External], next_cursor}` (por `applied_on` desc) |
+| `GET /me/external-applications/{id}` | → 200 `External` · 404 |
+| `PUT /me/external-applications/{id}` | `ExternalInput` completo, idempotente → 204 · 404 · 422 |
+| `DELETE /me/external-applications/{id}` | → 204 · 404 |
+
+```jsonc
+{ "company_name": "Banco X", "position": "Analista", "applied_on": "2026-11-05",
+  "status": "interviewing", "notes": "Hablé con RRHH, esperan al 20." }
+// External = lo anterior + "id", "created_at"
+```
+
+`company_name` y `position` 2–120; `applied_on` hasta hoy y no antes de 5 años; `status` ∈ `applied` ·
+`interviewing` · `offer` · `rejected` · `withdrawn` · `accepted`; `notes` hasta 2000, opcional, **cifrada**.
+Máximo **200** registros por persona (409 `limite_de_registros`). El `status` es libre: no hay máquina.
+
+#### Panel del reclutador
+
+De **mi** empresa y de la oferta indicada. La empresa debe estar verificada y con membresía vigente
+(403 `empresa_no_verificada` / `membresia_vencida`, tras el 404).
+
+| Ruta | Permiso | Cuerpo → respuesta |
+|---|---|---|
+| `GET /company/offers/{id}/applications` | `application.read` | `?limit&cursor&status&favorite&sort` → 200 `{items: [PanelRow], next_cursor}` |
+| `GET /company/applications/{id}` | `application.read` | → 200 `PanelApplication` · 404 |
+| `POST /company/applications/{id}/status` | `application.review` | `{to, note?}` → 200 `PanelApplication` · 404 · 409 `estado_invalido` · 422 |
+| `PUT /company/applications/{id}/favorite` | `favorite.manage` | → 204, idempotente · 404 · 409 `estado_invalido` |
+| `DELETE /company/applications/{id}/favorite` | `favorite.manage` | → 204, idempotente · 404 |
+
+```jsonc
+// PanelRow (lista: lo mínimo, sin contacto ni detalle)
+{ "id": "uuid", "status": "under_review", "applied_at": "...", "status_changed_at": "...",
+  "is_favorite": true, "availability": "available",
+  "applicant": { "display_name": "Ana P." },
+  "shared_fields": ["display_name", "skills", "experience"] }
+
+// PanelApplication (detalle): solo lo marcado, claves ausentes si no se compartió
+{ "id": "uuid", "status": "shortlisted", "applied_at": "...", "status_changed_at": "...",
+  "is_favorite": true, "availability": "available",
+  "offer": { "id": "uuid", "title": "..." },
+  "shared_fields": ["display_name", "skills", "experience", "email"],
+  "applicant": {
+    "display_name": "Ana P.",
+    "skills": [ { "skill": { "id": "uuid", "code": "rust", "name": "Rust" }, "level": "advanced", "years_of_experience": 3 } ],
+    "experience": [ { "company": "...", "title": "...", "start_date": "2022-01-01", "end_date": null } ],
+    "email": "ana@example.com" },
+  "history": [ { "from": "applied", "to": "under_review", "at": "...", "note": null } ] }
+```
+
+- **`availability`**: `available` · `withdrawn` (la persona retiró) · `deleted` (borró su cuenta) ·
+  `retention_expired` (pasaron 90 días del cierre de la oferta). Salvo en `available`, `applicant` es
+  `null`, no hay `shared_fields` y el resto (estado, fechas, historial) se conserva: es la
+  entrada **anónima** (PA10, BO2).
+- **Qué ve y qué no** (PA2, PA3): solo las claves de `shared_fields`; nunca el CV, el id de la persona
+  ni los datos de la lista «nunca» del consentimiento. La **lista** (`PanelRow`) solo trae
+  `display_name`; el contacto y el resto salen únicamente de `GET /company/applications/{id}`.
+- **Orden y filtros cerrados** (PA9): `sort` ∈ `recent` (por `applied_at` desc, defecto) · `oldest`;
+  `status` uno de los seis; `favorite` `true`/`false`; `limit` y `cursor`. Nada más (ver «No
+  discriminación»).
+- **Auditoría (PA8, SX4):** cada llamada que devuelve datos de una persona escribe en `access_audit`,
+  **sin el dato**: la lista, **una** fila (`application.list`, `resource_type: job_offer`, `resource_id` la
+  oferta); el detalle y el cambio de estado, una fila (`application.view` / `application.review`,
+  `resource_type: job_application`, `resource_id` la aplicación), con `actor_user_id` e `ip_hash`. Si
+  el insert falla, la petición falla (500) y no se devuelve el dato. Los candidatos no ven esta tabla en
+  la 5a.
+- **Límite anti-raspado (SX5):** 120 lecturas de detalle por reclutador y hora → 429
+  `demasiados_intentos` con `Retry-After`.
+- **Cambiar de estado**, orden: cuerpo (422: `to` desconocido, `note` de más de **500** caracteres; `to`
+  `withdrawn` o `applied` → 422 `datos_invalidos`) → 404 (aplicación de otra empresa o inexistente,
+  SX2/SX6) → 403 empresa → 409 `estado_invalido` (la máquina de arriba). `note` es opcional,
+  interna, **se guarda cifrada** (puede traer cualquier cosa) y solo la ven los reclutadores de esa
+  empresa en `history`. Quien mueve a `shortlisted` una oferta confidencial dispara la revelación
+  de su empresa a esa persona: la UI lo avisa **antes** de confirmar.
+- **Favoritos** (PA6, PA7): una fila única por `(empresa, persona)`; `PUT` repetido → 204 sin duplicar.
+  Se marca sobre una aplicación pero vale para la persona en toda la empresa (todas sus aplicaciones en
+  ella salen `is_favorite`). Sobre una aplicación no `available` → 409 `estado_invalido`. El favorito
+  de una empresa nunca lo ve otra ni la persona. No hay un listado propio de favoritos: se usa
+  `favorite=true`.
+- **Quién ve qué dentro de la empresa:** todos los reclutadores de la empresa ven todas las aplicaciones
+  de sus ofertas (no hay «mis ofertas» por reclutador en la 5a).
+
+#### No discriminación (HU-52, caso PA9, CA2, OF4)
+
+Es una regla de contrato y se prueba con tests que fallan si aparece un criterio prohibido.
+
+- **Edad, fecha de nacimiento, género, estado civil, nombre, apellido, foto, dirección, nacionalidad y
+  documento no existen** como campo de oferta ni como filtro, orden o búsqueda de **ningún** listado
+  (candidato, panel ni admin).
+- **Conjuntos cerrados.** Ofertas: filtros `profession_id`, `state_id`, `city_id`, `contract_type_id`,
+  `salary_range_id`, `working_shift_id`, `employment_sector_id`, `job_hierarchy_id`; orden `sort` ∈
+  `recent`·`oldest`. Panel: filtros `status`, `favorite`; orden `sort` ∈ `recent`·`oldest`. Más
+  `limit` y `cursor`. Admin: `verified`. El panel **no** filtra por habilidades ni por texto.
+- **Parámetro fuera del conjunto → 422 `parametro_no_permitido`** (`?age=…`, `?gender=…`,
+  `?marital_status=…`, `?name=…`, `?photo=…`, `?sort=name`, `?q=…`), **antes** de tocar la base y sin
+  repetir el nombre ni el valor. Campo de cuerpo fuera del contrato → 422 `campo_no_permitido`
+  (`age_range_from`, `gender_preference_id`, `marital_status_id`, etc.), y no se guarda nada.
+  Los valores ilegales de un parámetro **permitido** son `datos_invalidos`.
+- **Orden estable:** siempre por fecha (`publication_date` o `applied_at`) con `id` de desempate; el
+  panel nunca ordena por nombre ni por nada que se pueda inferir de la persona.
+- **Lo que sí queda abierto** (y se dice): `display_name` va al reclutador, y un nombre puede delatar
+  género u origen. Es lo que la decisión 2 recomienda y el riesgo está en `security.md`.
+
+#### Borrado y retención (BO1–BO4, decisión 5)
+
+- **`DELETE /me` de un candidato** borra, en la misma transacción que ya existe, sus matches (5b),
+  los favoritos que las empresas tenían sobre ella (`company_favorite_applicants`) y sus registros
+  externos (`external_applications`). Sus **aplicaciones no se borran**: pierden `applicant_id` y
+  `shared_fields` (queda `[]`) y quedan en el panel como **«candidato eliminado»**
+  (`availability: "deleted"`, `applicant: null`), con estado, fechas e historial; el `changed_by` de los
+  eventos hechos por la persona pasa a `null`. Así el reclutador no pierde su cuenta de aplicaciones y
+  no queda ningún dato de la persona. Las ofertas y empresas quedan intactas (BO1, BO2, PA10).
+- **`DELETE /me` de un reclutador** conserva sus decisiones como anónimas (BO3): `changed_by` de sus
+  eventos y `created_by` de sus ofertas pasan a `null` (`created_by: null` en `OfferDetail`; el historial
+  del panel no lleva quién decidió). Su `company_recruiters` y sus roles se borran en cascada. Si era el
+  único `company_admin` → 409 `ultimo_administrador` y **no** se borra nada.
+- **Constancia (BO4):** la misma fila `account_deleted` de `privacy_events`, sin nombre, correo ni id; no
+  hay tipo nuevo.
+- **Retención (decisión 5):** el panel deja de ver los datos compartidos a los **90 días** de
+  `closed_at` de la oferta (`availability: "retention_expired"`, calculado al leer) y de inmediato al
+  retirar o borrar. No hay copia que purgar: el dato nunca salió del perfil de la persona.
+
+#### Tasas y límites (SX5)
+
+| Qué | Límite | Respuesta |
+|---|---|---|
+| Aplicaciones creadas | 20 por persona en 24 h | 429 `demasiados_intentos` + `Retry-After` |
+| Ofertas creadas | 20 por empresa y hora | ídem |
+| Empresas creadas | 5 intentos por persona y día | ídem |
+| Invitaciones creadas | 20 por empresa y día (50 pendientes) | ídem |
+| Aceptar invitaciones | 10 intentos por persona y hora (acierte o no) | ídem |
+| Detalles del panel leídos | 120 por reclutador y hora | ídem |
+| Cualquier cuerpo | 8 KB (salvo 16 KB y 64 KB arriba) | 413 |
+
+Los contadores salen de filas ya existentes (aplicaciones, ofertas, invitaciones, `access_audit`) o de
+una tabla de intentos, como `login_attempts`; nunca de memoria del proceso. Todo 429 lleva `Retry-After`
+en segundos enteros.
+
+#### Códigos de error del grupo
+
+| Estado | `error` |
+|---|---|
+| 401 | sin token o token inválido |
+| 403 | `sin_permiso` · `cuenta_no_disponible` · `empresa_no_verificada` · `membresia_vencida` |
+| 404 | `no_encontrado` (recurso ajeno, inexistente o id mal formado) · `invitacion_invalida` |
+| 409 | `estado_invalido` (con `status` en las aplicaciones) · `ya_tiene_empresa` · `empresa_duplicada` · `nit_inmutable` · `ultimo_administrador` · `oferta_con_aplicaciones` · `confidencial_inmutable` · `ya_aplicaste` (con `application_id`) · `oferta_propia` · `limite_de_registros` |
+| 413 | cuerpo demasiado grande |
+| 422 | `datos_invalidos` · `campo_no_permitido` · `parametro_no_permitido` · `consentimiento_requerido` · `oferta_incompleta` (con `fields`) |
+| 429 | `demasiados_intentos` (con `Retry-After`) |
+
+#### Cambios de esquema que este contrato exige a `db.md`
+
+Para que el paso de cada recurso los migre y actualice `db.md` en el mismo PR: `companies.verified_at`;
+`companies.tax_id` cifrado + `tax_id_hash` único; `company_invitations` (`token_hash`, `email_hash`,
+`role`, `expires_at`, `used_at`, `revoked_at`, `created_by`); índice único parcial en
+`company_recruiters(user_id)`; `external_applications` (con `notes` cifrada); `job_offers.closed_at`; `job_offers.created_by` **nullable** con
+`ON DELETE SET NULL`; `job_applications.applicant_id` **nullable** con `ON DELETE SET NULL`,
+`shared_fields jsonb`, `consented_at`, `company_revealed_at`; `job_application_events.note` cifrada y
+`changed_by` nullable; `access_audit` con `ip_hash` y sin contenido. Roles `recruiter` y
+`company_admin` y los permisos de arriba, sembrados.
+
 _Por definir, fase por fase._ Áreas previstas:
 
 | Área | Qué cubre |
