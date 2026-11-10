@@ -114,7 +114,7 @@ Bajo `/api/v1`, todas `Authenticated`. Los formatos exactos están en los tests 
 
 | Ruta | Cuerpo → respuesta |
 |---|---|
-| `GET /catalogs/{nombre}` (`skills`, `languages`, `academic-levels`, `professions`, `job-hierarchies`) | → 200 `[{id, code, name}]` solo activos; nombre desconocido → 404 |
+| `GET /catalogs/{nombre}` (`skills`, `languages`, `academic-levels`, `professions`, `job-hierarchies`; de la Fase 5, `countries`, `states`, `cities`, `salary-ranges`, `working-shifts`, `contract-types`, `employment-sectors`, `driver-licenses`) | → 200 `[{id, code, name}]` solo activos; nombre desconocido (también `zones` y `membership-types`, que no se sirven) → 404. `states` acepta `?country_id=<uuid>` y `cities` `?state_id=<uuid>`; un valor que no es uuid → 400 `parametro_invalido`, un padre sin hijos → `[]` |
 | `POST /cvs` | `multipart/form-data`, un único campo `file` → 201 `{id, version, is_primary, original_filename, size_bytes, created_at, extraction: {status: ready\|failed, reason, proposal}}` · 409 `limite_de_cvs` (5 por persona) · 413 `archivo_demasiado_grande` (5 MB) · 415 `tipo_no_permitido` · 422 |
 | `GET /cvs` | → 200 lista de **mis** CVs (sin `storage_key`) |
 | `GET /cvs/{id}/file` | → 200 los bytes, con `Content-Disposition: attachment`, `X-Content-Type-Options: nosniff` y `Cache-Control: private, no-store` |
