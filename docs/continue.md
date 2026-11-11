@@ -16,8 +16,8 @@ termina, el score, la cuota y los desbloqueos siguen deterministas. Apagado por 
 están en [desarrollo.md](../documentation/desarrollo.md); lo que sale hacia OpenRouter, en
 [security.md](../documentation/security.md#redacción-con-ia-del-recruiter-jb-88).
 
-**Pendiente.** (1) Aviso en la pantalla de inicio de la entrevista (`jobout-web`): los modelos gratuitos
-pueden registrar y entrenar con los prompts; **no encender con personas reales antes**. (2) Calidad real:
+**Pendiente.** (1) ~~Aviso en la pantalla de inicio~~: hecho en JB-92 (core-api `ai_replies` en
+`GET /recruiters` y web con aviso y casilla); falta que una persona lo vea en un navegador. (2) Calidad real:
 los modelos gratuitos a veces hablan como el candidato o repiten saludos; se mide con Luis, no con tests.
 
 ## 2026-11-11 — Recorrido en el navegador del MVP (JB-84)

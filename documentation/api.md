@@ -149,7 +149,7 @@ con zona. Los ids son UUID. Los formatos exactos quedan fijados por los tests de
 
 | Ruta | Cuerpo → respuesta |
 |---|---|
-| `GET /recruiters` | → 200 `{items: [{id, code, display_name, role_title, personality, language}]}` (`language`: `es` \| `en`). Nunca `system_prompt` ni la rúbrica |
+| `GET /recruiters` | → 200 `{items: [{id, code, display_name, role_title, personality, language}], ai_replies}` (`language`: `es` \| `en`; `ai_replies`: booleano, ver «Redacción con IA»). Nunca `system_prompt` ni la rúbrica |
 | `GET /levels` | → 200 `{items: [{id, code, name, position, available, unlocked, min_score_to_unlock, best_score, sessions_completed}]}` por `position` ascendente, para **mi** cuenta |
 | `GET /progress` | → 200 `{items: [{session_id, completed_at, level, recruiter, score}]}` |
 | `POST /interviews` | `{recruiter_id, level_id, job_offer_id?}` → 201 `Interview` con la primera pregunta · 403 `nivel_bloqueado` · 403 `limite_del_plan` · 404 · 409 `nivel_no_disponible` · 409 `sesion_en_curso` · 422 `datos_invalidos` · 503 `motor_no_disponible` |
@@ -275,6 +275,14 @@ El contrato de arriba **no cambia**: mismas rutas, mismas formas, mismos errores
   en otro idioma o que parezca una fuga del prompt → se usa el texto determinista de ese turno. La persona
   nunca ve un error por esto y no cambia ningún código de respuesta. Hasta tres modelos, en orden
   (`OPENROUTER_MODELS`), antes de caer al determinista.
+- **`ai_replies` en `GET /recruiters` (JB-92).** Único cambio de contrato, **aditivo**: un booleano de
+  primer nivel junto a `items` (los items no cambian). Es `true` solo si el servidor corre con el motor de
+  OpenRouter, es decir, con `AI_REPLIES_ENABLED` verdadero **y** `OPENROUTER_API_KEY` no vacía; con el
+  interruptor apagado, o encendido sin clave, es `false`. Sale del motor que de verdad atiende los turnos
+  (no de releer el entorno), así que no puede decir `true` mientras el texto es determinista. Nunca lleva
+  la clave ni los modelos. El cliente que no conozca el campo lo ignora; si falta, se trata como `false`.
+  La web lo usa para mostrar el aviso de privacidad (y su casilla) en la pantalla de inicio solo cuando es
+  `true`. Lo fija `tests/interview_catalog_routes.rs::r2c_recruiters_informa_si_la_ia_esta_activa`.
 - **El texto guardado es el final** (el que se mostró), cifrado igual que siempre en
   `interview_turns.transcript`.
 - **Qué sale del servicio hacia OpenRouter**: el rol y el nivel del recruiter, el título de la oferta si es

@@ -200,11 +200,12 @@ redacta lo que dice el recruiter; la evaluación, la cuota y los desbloqueos sig
   nombre, correo, ids, contenido del CV ni nombre de empresa; el motor no los recibe (la frontera del
   motor no cambia) y `tests/interview_ai_replies_flow.rs` lo fija con nombres y un correo plantados.
 - **Aviso obligatorio antes del uso real**: los modelos gratuitos de OpenRouter **pueden registrar y
-  usar los prompts para entrenar**. Hay que decírselo a la persona *antes* de que empiece una entrevista
-  con IA. **Pendiente (seguimiento, no hecho en JB-88)**: el texto en la pantalla de inicio de la entrevista
-  de `jobout-web` y la decisión de si pide un consentimiento explícito. Mientras no esté, no se enciende
-  con personas reales. La persona escribe sin saber que puede haber otro destino que `core-api`: no
-  conviene que ponga nombres propios ni datos personales en sus respuestas.
+  usar los prompts para entrenar**. La pantalla de inicio de la entrevista de `jobout-web` lo dice
+  (JB-92) **solo cuando el servidor informa `ai_replies: true`** en `GET /recruiters`, y pide marcar una
+  casilla de conocimiento antes de «Empezar entrevista»; con la IA apagada no cambia nada. El aviso pide
+  además no escribir datos personales sensibles: la persona escribe sin saber que puede haber otro destino
+  que `core-api`. La casilla **no se guarda en el servidor** (es un freno en la pantalla, no un
+  consentimiento auditable); si se necesitara probarlo, sería una decisión y una migración aparte.
 - **La clave** (`OPENROUTER_API_KEY`) solo se lee del entorno, va en la cabecera `Authorization` y no
   se escribe en logs, errores, pruebas ni documentos. `Debug` de la configuración la oculta.
 - **Los logs no llevan contenido**: solo el modelo, la razón del fallo, la latencia y un contador
