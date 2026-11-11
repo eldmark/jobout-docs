@@ -7,6 +7,79 @@ Entrada más reciente arriba. No borres entradas viejas: se van quedando como hi
 
 ---
 
+## 2026-11-11 — Recorrido en el navegador del MVP (JB-84)
+
+Recorrido de punta a punta con Chrome sobre `http://127.0.0.1:3100`, con `develop` de los tres repos
+(docs `348868d`, core-api `c2ad75f`, web `8bd671c`) y cuentas `*.example.test` de prueba. No se arregló
+nada: es solo recorrido y bugs.
+
+**Qué se hizo**
+
+- **Candidata**: registro, perfil (nivel, profesión, jerarquía), subir CV por el selector (PDF) y por
+  arrastrar y soltar (DOCX), revisar la propuesta, confirmar, descargar (el archivo bajado es idéntico al
+  subido) y borrar. Entrevista con Martín/Junior: el avatar 3D pasa por reposo → pensando → hablando →
+  reposo, repregunta ante la respuesta vaga, resultado (60/100) y progreso.
+- **Ofertas**: el chip de afinidad sale en el listado (100 %, 47 %, 0 %), «Mejor afinidad» ordena bien, el
+  detalle trae «Afinidad con tu perfil» con el desglose por componente, «Practicar esta entrevista» abre la
+  sala con «Practicando: Desarrollador Backend Junior Rust» y las preguntas mencionan Docker, el diálogo de
+  consentimiento marca lo obligatorio y lo opcional, «Mis aplicaciones» y retirar.
+- **Empresa**: registro, empresa «en verificación» (publicar bloqueado), verificación y membresía por la
+  admin de plataforma, oferta creada y publicada (el botón explica «falta el municipio»), oferta
+  confidencial, panel con la aplicante, favorito, En revisión → Preseleccionada → Contratada, rechazo,
+  invitación y alta de una segunda persona, quitar al único administrador (409 con texto claro).
+- **Privacidad**: el reclutador solo ve lo consentido (sin teléfono, descripción, nivel académico ni «lo que
+  hiciste»; el correo y la afinidad solo si se marcaron); otra empresa recibe 404 al leer, mover o marcar
+  favorita; la oferta confidencial dice «Empresa confidencial» hasta la preselección; tras retirar, el panel
+  muestra `applicant: null` y sin favorito; quitar a una persona del equipo le corta el acceso al instante.
+- **Borrado de cuentas**: con la base **completamente migrada** `DELETE /me` responde 204 para candidata y
+  reclutador. El 500 `leer_empresa` de la vez anterior era la base sin las tablas de empresa (faltaban 7
+  migraciones). Quedan aplicaciones anonimizadas (`applicant_id` nulo, `shared_fields` `[]`), ofertas con
+  `created_by` nulo y las notas internas cifradas; `users`, `applicants`, `personal_data`, `cvs`,
+  `cv_extractions` y `interview_*` de las cuentas de prueba quedaron en 0. En los registros del core-api no
+  aparece ningún correo, nombre, empresa ni texto de respuestas.
+- Teclado: los diálogos de borrar CV, terminar entrevista, aplicar, mover aplicación, retirar y borrar cuenta
+  tienen `role="dialog"` `aria-modal`, foco dentro, Tab/Shift+Tab sin salir y Escape devuelve el foco al botón.
+- Responsive a 390 px (iframe, porque `resize_window` no cambió el viewport): listado, detalle y sala sin
+  desborde horizontal.
+
+**Bugs nuevos**: BUG-011 a BUG-018 (ver `bugs.md`). Lo más serio: BUG-011/012 (el stack no se reconstruye con
+`--build` y el contenedor web no recibe dependencias nuevas), BUG-013 (filtros de `/offers` solapados en
+escritorio) y BUG-014 (el único administrador no puede borrar su cuenta y la pantalla dice solo «inténtalo
+de nuevo»). BUG-004 se reconfirmó (60/100, «Relevancia 7/20» con respuestas concretas).
+
+**Cómo se resolvió**
+
+- Base local: `cargo run -p migration -- up` dentro del contenedor `core-api` (las 7 migraciones de empresas,
+  ofertas, aplicaciones, favoritos y autoría).
+- Web: `docker compose build web` y `up -d --no-deps --force-recreate -V web` para que entrara `three`.
+- SQL en la base local de desarrollo, y solo eso: (1) `insert into user_roles` con el rol `admin` para
+  la usuaria «Ana Admin» (la admin de plataforma de prueba); (2) `update user_subscriptions` de la candidata
+  al plan `student` (el plan gratis solo da 1 práctica al mes y ya la había usado); (3) al final, un
+  `delete` en orden (aplicaciones, requisitos de ofertas, ofertas, membresías, favoritos, invitaciones,
+  reclutadores, empresas) de las dos empresas de prueba, porque sus únicos administradores no podían
+  borrar su cuenta (BUG-014).
+- El archivo subido por el selector y el de arrastrar se pasaron por `DataTransfer`, porque la herramienta
+  del navegador no sube archivos fuera de sus carpetas permitidas.
+
+**No se pudo verificar**: el arrastre con el ratón real desde el explorador de archivos (el evento `drop` se
+simuló), la descarga como flujo nativo del navegador más allá del archivo guardado, el borrado del blob en
+S3/`data/` (la carpeta es de `root`), `resize_window` real a 390 px y el comportamiento con un lector de
+pantalla. Las GIF de la sección B y B2 (empresa y panel) se grabaron pero no llegaron a `~/Downloads`.
+
+**Archivos tocados**
+
+- `docs/bugs.md` (BUG-011 a BUG-018)
+- `docs/continue.md` (esta entrada)
+
+**Migraciones**: ninguna en el código. Solo se aplicaron en la base local las 7 que ya estaban en core-api
+`develop`.
+
+GIF y capturas: `~/Downloads/A-candidato-registro-cv-entrevista.gif`,
+`A2-candidato-ofertas-afinidad-practicar-aplicar.gif`, `C-privacidad-aplicar-retirar.gif`,
+`D-borrado-de-cuentas.gif`; capturas en `~/.cache/jobout-work/scratch/walk/evidence/`.
+
+---
+
 ## 2026-11-11 — Fase 5a: pasos 7, 10, 11 y 12 con código; recorrido con las dos caras
 
 **Qué se hizo** (nada está mergeado: todo son PRs abiertos hacia `develop`)
