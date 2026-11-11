@@ -174,8 +174,9 @@ repartió entre el paso 2 y los demás.
       docs `jb-64-db-applications` #31. Incluye el registro de aplicaciones externas y BO1/BO2 del paso 10)*
 - [x] 7. Panel del reclutador: ver aplicaciones, mover estados, favoritos y `access_audit`. *(core-api
       `jb-67-recruiter-panel`; docs `jb-67-db-panel`)*
-- [ ] 8. Matching: cálculo, desglose y recálculo *(5b)*
-- [ ] 9. Práctica de una oferta (HU-31), según la decisión 12 *(5b)*
+- [ ] 8. Matching: cálculo, desglose y recálculo *(5b; contrato en `api.md`, «Matching (Fase 5b)»)*
+- [ ] ~~9. Práctica de una oferta (HU-31)~~ → **Fase 4** (decisión 12). En esta fase queda solo la FK de
+      `interview_sessions.job_offer_id`, que ya entró en el paso 4
 - [x] 10. Borrado de cuenta ampliado (candidato y reclutador). *(Candidato en el paso 6; reclutador en core-api
       `jb-68-recruiter-deletion`, docs `jb-68-db-authorship`)*
 - [x] 11. Frontend del candidato. *(web `jb-69-candidate-offers-ui` #15)*
@@ -529,3 +530,15 @@ Agregadas en la revisión contra el código del 2026-11-10:
     había recorrido lo mismo sin la interfaz.
   - **No cubierto:** invitar y aceptar a un reclutador en el navegador (cubierto por pruebas de componente),
     retirar desde la interfaz, móvil, modo oscuro y lector de pantalla en estas páginas.
+- **2026-11-11, contrato de la 5b** (`jb-77-fase5b-matching`; solo documentación, en `api.md` y `db.md`). Se
+  adoptó la opción recomendada de las decisiones que la 5b toca:
+  - **4:** el reclutador ve el puntaje solo si la persona marca `match_score` al aplicar (el conjunto cerrado
+    pasa de 9 a 10 nombres). `interview_score` queda fuera: no está decidido qué entrevista contaría.
+  - **8:** una cola (`match_refresh`) y la tarea de cada minuto, con 50 filas por vuelta.
+  - **12:** HU-31 pasa a la Fase 4; aquí solo la FK, que ya existe.
+  - **14:** sin `job_preferences`: MA1 usa habilidades, idiomas, experiencia y nivel académico.
+  - **Lo que hubo que fijar:** los pesos (50 · 15 · 20 · 15), la mitad de puntos por nivel insuficiente,
+    los años de experiencia uniendo solapes, «sin requisitos comparables» como puntaje 0 con motivo,
+    `sorted_by` y `match_unavailable` para MA6, y que leer `/offers` nunca calcula.
+  - **Riesgo aceptado:** el plan pedía diseñar el matching con ofertas reales cargadas (decisión 13). No hay
+    ninguna todavía: los pesos son una primera versión, a revisar con las primeras empresas.

@@ -23,6 +23,9 @@ que la frontera de privacidad deja de ser teoría.
 
 ## Historias de usuario que cubre
 
+- HU-31 — practicar una entrevista específica para una oferta *(llega de la Fase 5 por su decisión 12: el
+  motor determinista no entiende el puesto; la FK `interview_sessions.job_offer_id` ya existe)*
+
 - HU-11 — hablar por voz con el recruiter
 - HU-13 — que el recruiter recuerde mis sesiones anteriores
 - HU-12 *(ampliación)* — repreguntas con comprensión real, no por longitud

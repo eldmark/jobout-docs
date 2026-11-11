@@ -608,8 +608,31 @@ ninguna empresa ni pasa por la máquina de estados.
 
 ### `job_matches`
 
-`applicant_id` · `job_offer_id` · `score (smallint)` · `breakdown (jsonb)` · `computed_at` ·
-unique compuesto. Precalculado: HU-30 tiene que responder rápido, no calcular al vuelo.
+Migración `m20261111_000003_create_matches` (Fase 5b, paso 8). Contrato en [api.md](api.md), «Matching
+(Fase 5b)».
+
+| Columna | Tipo | Notas |
+|---|---|---|
+| `applicant_id` | uuid | FK → `applicants`, **`ON DELETE CASCADE`** (BO1) |
+| `job_offer_id` | uuid | FK → `job_offers`, `ON DELETE CASCADE` |
+| `score` | smallint | 0–100 (`CHECK`) |
+| `breakdown` | jsonb | El desglose del contrato. **Sin datos de la persona**: solo ids y nombres de catálogo, años y puntos |
+| `computed_at` | timestamptz | |
+
+PK `(applicant_id, job_offer_id)`. Índice `(applicant_id, score DESC)` para `sort=match`. Precalculado:
+HU-30 tiene que responder rápido, no calcular al vuelo.
+
+### `match_refresh`
+
+Misma migración. La cola del recálculo (decisión 8): una fila por persona **o** por oferta pendiente.
+
+| Columna | Tipo | Notas |
+|---|---|---|
+| `id` | uuid v7 | PK |
+| `applicant_id` · `job_offer_id` | uuid | Exactamente uno de los dos (`CHECK`). FK con `ON DELETE CASCADE`. Únicos parciales: una sola fila pendiente por persona y por oferta |
+| `enqueued_at` | timestamptz | Encolar de nuevo actualiza la fecha (`ON CONFLICT DO UPDATE`) |
+
+La tarea toma las filas con `FOR UPDATE SKIP LOCKED` y las borra en la misma transacción del cálculo.
 
 ---
 
