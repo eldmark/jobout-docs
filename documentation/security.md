@@ -189,6 +189,33 @@ Contrato en [api.md](api.md#entrevista-fase-3). Lo que la seguridad exige de él
   comportamiento del motor (caso X8, que se repite con el motor de IA).
 - **El motor no recibe PII ni ids de persona**, solo el historial y la configuración del recruiter.
 
+### Redacción con IA del recruiter (JB-88)
+
+Apagada por defecto (`AI_REPLIES_ENABLED`). Cuando se enciende, un modelo **gratuito** de OpenRouter
+redacta lo que dice el recruiter; la evaluación, la cuota y los desbloqueos siguen siendo deterministas.
+
+- **Lo que se envía**: rol y nivel del recruiter, el título de la oferta (si es una práctica de oferta),
+  la pregunta que eligió el motor determinista y los **últimos 4 mensajes** de la conversación. **Las
+  respuestas de la persona viajan** (el modelo no puede reaccionar a lo que no ve). **No** se envían
+  nombre, correo, ids, contenido del CV ni nombre de empresa; el motor no los recibe (la frontera del
+  motor no cambia) y `tests/interview_ai_replies_flow.rs` lo fija con nombres y un correo plantados.
+- **Aviso obligatorio antes del uso real**: los modelos gratuitos de OpenRouter **pueden registrar y
+  usar los prompts para entrenar**. Hay que decírselo a la persona *antes* de que empiece una entrevista
+  con IA. **Pendiente (seguimiento, no hecho en JB-88)**: el texto en la pantalla de inicio de la entrevista
+  de `jobout-web` y la decisión de si pide un consentimiento explícito. Mientras no esté, no se enciende
+  con personas reales. La persona escribe sin saber que puede haber otro destino que `core-api`: no
+  conviene que ponga nombres propios ni datos personales en sus respuestas.
+- **La clave** (`OPENROUTER_API_KEY`) solo se lee del entorno, va en la cabecera `Authorization` y no
+  se escribe en logs, errores, pruebas ni documentos. `Debug` de la configuración la oculta.
+- **Los logs no llevan contenido**: solo el modelo, la razón del fallo, la latencia y un contador
+  (`fallbacks_total`). Nunca el texto de la persona, el del recruiter ni lo que devolvió el modelo.
+- **El texto de la persona es dato, no instrucción**: va entre `<candidato>…</candidato>` (se le quitan
+  los `<` y `>`), nunca en el prompt de sistema; el modelo no puntúa. Si el resultado parece una fuga del
+  prompt, está en otro idioma, tiene markdown o prefijos de rol, se limpia o se descarta.
+- **Tope de costo y de espera**: 200 tokens de salida, 600 caracteres, 8 s por intento, hasta 3 modelos.
+  Mientras el modelo contesta, el turno sigue dentro de su transacción (la sesión queda bloqueada por
+  `turno_en_proceso`); el peor caso por turno es la suma de los intentos.
+
 ## Ofertas, empresas y panel (Fase 5a)
 
 Contrato en [api.md](api.md#ofertas-y-empresas-fase-5a). Es la primera vez que los datos de una persona
