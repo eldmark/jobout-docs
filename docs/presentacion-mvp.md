@@ -5,7 +5,7 @@ JobOut hace hoy. Cada caso dice qué probar, con qué datos, paso a paso, qué d
 automática lo cubre y si alguien ya lo vio funcionar en el navegador.
 
 **De dónde sale.** `develop` de los tres repos al 2026-11-11 (docs `9a54f05`, core-api `242812d`, web
-`ed910c7`). Los nombres de pruebas se verificaron leyendo `tests/*.rs` de core-api y `tests/*.test.*` de
+`ed910c7`); el chat de IA se llenó después (core-api #41 `f0c2d8a`, docs #41 `e566372`) y con JB-92. Los nombres de pruebas se verificaron leyendo `tests/*.rs` de core-api y `tests/*.test.*` de
 web; si un caso dice «solo manual», es porque no hay prueba que lo cubra. El estado «probado en navegador»
 sale **solo** de lo que dicen [`continue.md`](continue.md) y [`bugs.md`](bugs.md): nada se marcó por
 suposición.
@@ -17,7 +17,7 @@ suposición.
 | **probado en navegador (2026-11-11)** | Lo recorrió el agente de JB-84 con Chrome el 2026-11-11 (`continue.md`, «Recorrido en el navegador del MVP»). Fue con web `8bd671c`, **antes** de web #27 y #28 (ver «Lo que cambió después del recorrido») |
 | **probado en navegador (2026-11-10)** | Solo lo vio el recorrido anterior (`continue.md`, «Recorrido en el navegador, hecho por un agente», 2026-11-10 noche) |
 | **probado solo por pruebas automáticas** | Hay pruebas verdes, pero nadie lo vio en un navegador según los docs |
-| **no probado** | No hay código ni prueba. Hoy solo el chat de IA |
+| **no probado** | No hay código ni prueba. Hoy ningún caso |
 
 Los dos recorridos los hizo **un agente**, no una persona del equipo: ninguno reemplaza la pasada de una
 persona (lo dicen los dos docs). El drag-and-drop se probó con un evento `drop` simulado, no con el ratón
@@ -38,11 +38,12 @@ chat de IA.
 | Aplicar con consentimiento (`APL`) | 11 | 6 | 0 | 5 | 0 | 0 |
 | Lado empresa (`EMP`) | 21 | 16 | 0 | 5 | 0 | 0 |
 | Privacidad y seguridad (`PRI`) | 12 | 9 | 0 | 3 | 0 | 0 |
-| Chat de IA (`CHAT`) | 3 | 0 | 0 | 0 | 3 | 3 |
-| **Total** | **105** | **55** | **9** | **38** | **3** | **4** |
+| Chat de IA (`CHAT`) | 3 | 0 | 0 | 3 | 0 | 0 |
+| **Total** | **105** | **55** | **9** | **41** | **0** | **1** |
 
-«Solo manual» cuenta los casos sin prueba automática que los cubra: el límite BUG-004 (CP-ENT-11) y los tres
-del chat. Los demás 101 casos tienen al menos una prueba con nombre verificado. Ojo: «probado en navegador»
+«Solo manual» cuenta los casos sin prueba automática que los cubra: hoy solo el límite BUG-004 (CP-ENT-11).
+Los demás 104 casos tienen al menos una prueba con nombre verificado. Los tres del chat (`CHAT`) cuentan como «solo pruebas automáticas» **más** una prueba
+en vivo contra la API real hecha por un agente el 2026-11-11 (no en navegador). Ojo: «probado en navegador»
 lo hizo **un agente** y, en web, antes de #27 y #28.
 
 ## Antes de presentar
@@ -392,7 +393,7 @@ pero nadie los vio en un navegador:** ensaya la demo con el `develop` actual ant
 #### CP-ENT-02 — Iniciar una entrevista
 - **Pasos:** elegir Martín y «Junior» → «Empezar entrevista».
 - **Resultado esperado:** abre la sala con la primera pregunta (la apertura del recruiter, la misma cada
-  vez). Un doble clic crea **una** sola sesión. API: `POST /interviews` → 201.
+  vez con la IA apagada). Un doble clic crea **una** sola sesión. API: `POST /interviews` → 201.
 - **Automatizada:** core-api `tests/interview_sessions.rs::s1_crear_devuelve_la_sesion_con_la_primera_pregunta`,
   `s6_creaciones_simultaneas_dejan_una_sola_sesion`; `tests/interview_engine.rs::m3_first_question_is_the_recruiters_opening_and_the_same_every_time`;
   web `tests/interview-start.test.tsx` («doble clic -> un solo POST y navega a la conversación»).
@@ -402,7 +403,7 @@ pero nadie los vio en un navegador:** ensaya la demo con el `develop` actual ant
 - **Pasos:** repetir CP-ENT-02 con Ana (RRHH), Martín (CTO) y Sofía.
 - **Resultado esperado:** bancos de preguntas distintos (Ana pregunta por motivación y trabajo en equipo,
   Martín por decisiones técnicas y repregunta más); **Sofía entrevista en inglés**, también las
-  repreguntas. Es un motor **determinista** por reglas, no un LLM.
+  repreguntas. Es un motor **determinista** por reglas, no un LLM (con la IA apagada, que es lo normal; si se enciende, solo cambia la redacción: ver CP-CHAT-01).
 - **Automatizada:** core-api `tests/interview_engine.rs::m2_banks_differ_and_ana_asks_motivation_and_teamwork_martin_technical_decisions`,
   `m8_martin_follows_up_where_ana_accepts`, `m10_sofia_speaks_english_everyone_else_spanish_including_follow_ups`;
   `tests/interview_catalog.rs::k3_sofia_entrevista_en_ingles_y_el_resto_en_espanol`.
@@ -1182,34 +1183,114 @@ pero nadie los vio en un navegador:** ensaya la demo con el `develop` actual ant
 
 ### Chat de IA
 
-> **Pendiente de PR jb-88.** El chat de IA está en desarrollo y **no hay código en `develop`** de ninguno de
-> los tres repos (buscar `openrouter` no da nada; no hay PR abierto con ese nombre). Lo único que se sabe es
-> la intención que dio el equipo: reformular con modelos **gratuitos de OpenRouter**, con un **respaldo
-> determinista** si el modelo no responde. **No se inventa su comportamiento:** los pasos y resultados de
-> estos casos se llenan al mergear el PR, y hasta entonces **no se muestra en la demo**.
+> **Entró con core-api #41 (JB-88), docs #41 y el aviso de privacidad de JB-92.** No es un chat libre: el motor
+> determinista decide qué se pregunta, cuándo termina, el score, la cuota y los desbloqueos; un modelo
+> **gratuito** de OpenRouter solo *redacta* lo que dice el recruiter (apertura, repreguntas y pregunta
+> siguiente; el cierre y el «responde, por favor» siguen fijos). **Apagado por defecto.** Los pasos de abajo
+> salen de `src/interview/openrouter.rs` de core-api, de [`security.md`](../documentation/security.md) y de
+> las pruebas citadas, no de memoria. **Estado general:** probado por pruebas automáticas y en vivo contra la
+> API real por **un agente** el 2026-11-11 (`interview_ai_replies_live`); **ninguna persona lo ha visto
+> todavía en un navegador**, y la calidad de los modelos gratuitos varía (ver «Calidad conocida»).
+
+**Cómo encenderlo (una vez, antes de presentar).** En el `.env` de core-api (ignorado por git; nunca en el
+compose ni en un commit):
+
+```
+AI_REPLIES_ENABLED=true
+OPENROUTER_API_KEY=<tu clave de OpenRouter>   # solo en tu .env; no la pegues en pantalla, chats ni capturas
+# opcionales: OPENROUTER_MODELS=a,b,c   OPENROUTER_TIMEOUT_MS=8000 (tope 20000)
+```
+
+y reinicia core-api (`docker compose up -d --force-recreate core-api`): las variables se leen al arrancar.
+Solo `true` o `1` enciende; **sin clave sigue siendo determinista aunque el interruptor esté en `true`**. Por
+defecto prueba, en orden, `google/gemma-4-31b-it:free`, `nvidia/nemotron-3.5-lightning:free` y
+`nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free` (hasta tres por turno; 8 s por intento; máx. 200 tokens
+y 600 caracteres de respuesta). Los modelos gratuitos cambian o desaparecen sin aviso. Para comprobar que quedó
+encendido sin ver la clave: `GET <API>/api/v1/recruiters` con un token de candidata devuelve `"ai_replies": true`
+(con el interruptor apagado, o sin clave, `false`).
 
 #### CP-CHAT-01 — Reformulación con un modelo gratuito de OpenRouter
-- **Objetivo:** pendiente de PR jb-88. Por definir al mergear: qué se reformula, dónde está en la interfaz
-  y con qué modelos.
-- **Precondiciones, pasos y resultado esperado:** pendiente de PR jb-88.
-- **Automatizada:** solo manual (no hay código ni pruebas en `develop` hoy).
-- **Estado:** no probado (pendiente de PR jb-88).
+- **Objetivo:** mostrar que el recruiter habla con otras palabras (y con su personalidad) sin cambiar qué se
+  pregunta ni cuándo termina.
+- **Precondiciones:** core-api encendido como arriba; cuenta de candidata; cuota del plan disponible.
+- **Pasos:** en `<WEB>/interviews` aparece el aviso de privacidad (ver CP-CHAT-03); márcalo y empieza con
+  Ana (Junior) → leer la apertura → responder algo **vago** (p. ej. «me gusta trabajar en equipo») → leer la
+  repregunta → responder algo concreto con cifras → leer la pregunta siguiente → **Terminar**. Repite con
+  Sofía para verla en inglés.
+- **Resultado esperado:** el recruiter abre y repregunta con redacción propia (1 a 3 frases, a veces con una
+  reacción breve a tu respuesta), siempre termina con la pregunta que eligió el motor; la repregunta sigue
+  siendo `follow_up`; el texto guardado es el que se mostró (cifrado como siempre); **el score y su desglose
+  son los del evaluador por reglas** (el modelo no puntúa). Cada ejecución puede variar la redacción: no
+  compares con un texto fijo.
+- **Automatizada:** core-api `tests/interview_ai_replies.rs::a1_the_opening_is_worded_by_the_model_but_decided_by_the_engine`,
+  `a2_a_follow_up_is_worded_by_the_model_and_keeps_its_kind`, `a3_the_next_question_after_a_good_answer_is_worded_too`,
+  `a4_sofia_is_worded_in_english`, `a5_an_offer_practice_is_worded_and_keeps_the_offers_questions`,
+  `a6_the_model_never_decides_when_to_finish_and_is_not_even_asked`, `a7_an_empty_answer_reprompt_stays_deterministic`;
+  `tests/interview_ai_replies_flow.rs::ai_wording_is_stored_fallback_is_silent_and_no_pii_travels` (por la API,
+  con un OpenRouter simulado). En vivo, a mano y fuera de CI:
+  `tests/interview_ai_replies_live.rs::live_smoke_one_turn_per_recruiter_kind` (`#[ignore]`, usa la clave real).
+- **Calidad conocida (dila antes de mostrarlo):** los modelos gratuitos **a veces hablan como si fueran la
+  candidata** o **vuelven a saludar o a presentarse** a mitad de la conversación; el prompt lo prohíbe y hay
+  filtros (otro idioma, fuga del prompt, sin pregunta, demasiado largo, markdown, prefijos de rol), pero no
+  atrapan todo. Un 429 por cupo del primer modelo es normal y pasa al siguiente. La calidad real se mide a mano,
+  no con tests.
+- **Estado:** probado solo por pruebas automáticas y en vivo contra la API real por un agente (2026-11-11).
+  **No probado en navegador ni por una persona.**
 
 #### CP-CHAT-02 — Respaldo determinista cuando el modelo no responde
-- **Objetivo:** pendiente de PR jb-88. Intención declarada: que siga habiendo una salida si el modelo
-  gratuito falla o se limita.
-- **Precondiciones, pasos y resultado esperado:** pendiente de PR jb-88 (cómo se simula la caída del modelo
-  también está por definir).
-- **Automatizada:** solo manual (no hay código ni pruebas en `develop` hoy).
-- **Estado:** no probado (pendiente de PR jb-88).
+- **Objetivo:** que nunca se vea un error por culpa del modelo: ante cualquier fallo se usa el texto
+  determinista de ese turno.
+- **Cuándo ocurre:** sin clave; timeout (`OPENROUTER_TIMEOUT_MS`); error HTTP; **429**; cuerpo ilegible;
+  respuesta vacía, de más de 600 caracteres, en otro idioma, sin pregunta o que parezca una fuga del prompt.
+  Antes de caer al determinista se prueban hasta tres modelos en orden.
+- **Cómo demostrarlo (elige uno):** (a) **modelos inexistentes:** pon `OPENROUTER_MODELS=no-existe/modelo:free`
+  en el `.env` y reinicia core-api; cada turno intenta, falla y cae al texto fijo (error HTTP de OpenRouter);
+  (b) **sin clave o interruptor apagado:** vacía `OPENROUTER_API_KEY` o pon `AI_REPLIES_ENABLED=false`,
+  reinicia, y la entrevista es la determinista de siempre (el aviso de privacidad desaparece); (c) un
+  **timeout** corto (`OPENROUTER_TIMEOUT_MS=1`). Después de la demo, restaura el `.env` y reinicia.
+  `docker compose logs core-api` muestra `ai reply fell back to the deterministic text` con la razón
+  (`http_429`, `timeout`, …) y un contador, **sin ningún texto** de la conversación.
+- **Resultado esperado:** la entrevista sigue igual (mismas preguntas, mismos `kind`, mismo score, mismos
+  códigos de respuesta); el texto del recruiter es el determinista; la persona no ve ningún error.
+- **Automatizada:** core-api `tests/interview_ai_replies.rs::a8_http_500_falls_back`, `a9_http_429_falls_back`,
+  `a9b_an_error_status_is_a_failure_even_with_a_usable_body`, `a10_a_timeout_falls_back_fast`,
+  `a11_empty_or_blank_output_falls_back`, `a12_garbage_falls_back`, `a13_too_long_output_falls_back`,
+  `a14_off_language_output_falls_back`, `a15_a_prompt_leak_falls_back`,
+  `a16_the_second_model_is_tried_when_the_first_fails`, `a17_the_first_model_is_enough_and_all_failing_falls_back_once`,
+  `a18_no_key_means_the_deterministic_turn_and_no_request`, `a19_the_flag_is_off_by_default_and_off_means_deterministic`,
+  `a25_logs_carry_a_counter_but_never_the_key_nor_any_content`; `tests/interview_ai_replies_flow.rs::ai_wording_is_stored_fallback_is_silent_and_no_pii_travels`
+  (el modelo «se cae» a mitad de una entrevista y el turno sale determinista con 201).
+- **Estado:** probado solo por pruebas automáticas (el modo de fallo se simula con un servidor falso).
+  Las vías (a) a (c) no se han recorrido en el navegador.
 
-#### CP-CHAT-03 — Qué sale hacia el proveedor externo
-- **Objetivo:** pendiente de PR jb-88. Antes de mostrarlo, confirmar **qué texto viaja a OpenRouter** y que
-  no incluye datos personales ni de empresas confidenciales: las reglas del resto de la API (nada sensible
-  en logs ni errores) no cubren por sí solas un tercero nuevo.
-- **Precondiciones, pasos y resultado esperado:** pendiente de PR jb-88.
-- **Automatizada:** solo manual (no hay código ni pruebas en `develop` hoy).
-- **Estado:** no probado (pendiente de PR jb-88).
+#### CP-CHAT-03 — Qué sale hacia el proveedor externo y el aviso de privacidad
+- **Objetivo:** que la persona sepa, **antes de empezar**, que un modelo de IA redacta las preguntas y que
+  sus respuestas van a un tercero; y que no viaje nada más de lo necesario.
+- **Pasos:** (1) con la IA **apagada**, abrir `<WEB>/interviews`: no hay aviso ni casilla y «Empezar
+  entrevista» funciona como siempre. (2) Con la IA **encendida**: aparece el aviso («En esta práctica un modelo
+  de IA redacta las preguntas. Tus respuestas se envían a un proveedor externo (OpenRouter) y los modelos
+  gratuitos pueden guardarlas o usarlas para entrenarse. No escribas datos personales sensibles.») con la
+  casilla «Entiendo que mis respuestas se envían a un proveedor externo de IA.». (3) Elegir recruiter y nivel y
+  pulsar «Empezar entrevista» **sin** marcarla: no se crea la sesión, sale el error «Marca que leíste el aviso
+  de privacidad para continuar.» y el foco va a la casilla. (4) Marcarla (también con Espacio): el error se
+  va y la entrevista empieza.
+- **Resultado esperado:** el aviso solo existe cuando `GET /recruiters` dice `ai_replies: true`. A
+  OpenRouter viajan: el rol y el nivel del recruiter, el título de la oferta si es una práctica de oferta, la
+  pregunta que eligió el motor y **los últimos 4 mensajes** (incluidas **las respuestas de la persona**, cada
+  una cortada a 1500 caracteres y sin `<` ni `>`), con la clave en la cabecera `Authorization`. **No** viajan
+  nombre, correo, ids, CV ni nombre de empresa. Los logs no llevan texto ni la clave. La casilla es un freno
+  de pantalla: **no se guarda** en el servidor.
+- **Automatizada:** core-api `tests/interview_catalog_routes.rs::r2c_recruiters_informa_si_la_ia_esta_activa`;
+  `tests/interview_ai_replies.rs::a21_the_request_is_minimal_bounded_and_authenticated`,
+  `a22_only_the_last_four_turns_are_sent`, `a23_candidate_text_is_data_inside_delimiters_not_instructions`,
+  `a24_markdown_quotes_and_role_prefixes_are_stripped`, `a25_logs_carry_a_counter_but_never_the_key_nor_any_content`;
+  `tests/interview_ai_replies_flow.rs::ai_wording_is_stored_fallback_is_silent_and_no_pii_travels` (nombres y
+  un correo plantados no aparecen en lo enviado). Web `tests/interview-start.test.tsx` (bloque «aviso de
+  privacidad de la IA»: sin aviso con `ai_replies` falso o ausente; aviso y casilla con `true`; sin marcarla no
+  hay `POST`, error anunciado y foco; marcada, empieza una sola vez), `tests/interview-copy.test.ts`,
+  `tests/messages.test.ts`, `tests/interview-routes.test.ts`, `tests/interview-client.test.ts`.
+- **Estado:** probado solo por pruebas automáticas. El aviso **no se ha visto en un navegador** ni lo ha
+  revisado una persona (texto legal incluido). Mientras tanto, **no enciendas la IA con personas reales**.
 
 ## Límites y bugs conocidos que pueden aparecer en la demo
 
@@ -1257,10 +1338,10 @@ sesión de navegador por cuenta (ventanas de incógnito o perfiles distintos) y 
 | 9:00 | **Lado empresa.** Con la reclutadora: panel de la oferta → Camila → solo lo consentido (correo y afinidad sí; teléfono, no) → «En revisión» con nota → «Favorita». Mover la aplicación a la confidencial a «Preseleccionada» y mostrar el aviso | reclutadora A | CP-EMP-14, CP-EMP-15, CP-EMP-17, CP-EMP-18, CP-PRI-01 |
 | 10:15 | **Verificación:** con la admin, `/admin/companies` → verificar la **empresa B** y darle membresía (30 segundos) | admin | CP-EMP-03, CP-EMP-04 |
 | 10:45 | **Privacidad:** Camila **retira** la aplicación → la reclutadora recarga y ya no hay datos; en una terminal, una llamada de la empresa B a una aplicación de la A → **404** | Camila, reclutadora, B | CP-APL-08, CP-PRI-05, CP-PRI-03 |
-| 11:30 | **Cierre:** lo que no está (voz, IA en el evaluador, cierre de empresa, chat de IA **pendiente de PR jb-88**) y lo que viene | — | Límites |
+| 11:30 | **Cierre:** lo que no está (voz, IA en el evaluador, cierre de empresa, la IA solo **redacta** al recruiter, no evalúa) y lo que viene | — | Límites |
 
 Si el tiempo aprieta, recorta en este orden: el progreso (6:00), la verificación (10:15) y la llamada de 404.
-**No muestres el chat de IA** mientras el PR jb-88 no esté mergeado y ensayado.
+**No muestres el chat de IA** hasta que una persona lo haya ensayado en el navegador con su propia clave (CP-CHAT-01 a 03): hoy solo lo probó un agente contra la API. Si lo muestras, di antes la advertencia de calidad y enciende el interruptor solo para esa demo.
 
 ## Plan B si algo falla
 
@@ -1281,6 +1362,6 @@ Si el tiempo aprieta, recorta en este orden: el progreso (6:00), la verificació
 
 ## Cómo se mantiene
 
-Cuando un caso se vea en un navegador, cambia su **Estado** con la fecha y quién lo hizo. Cuando entre el PR
-jb-88, llena los casos `CP-CHAT-*` desde su código y sus pruebas, no desde memoria. Los nombres de prueba se
+Cuando un caso se vea en un navegador, cambia su **Estado** con la fecha y quién lo hizo. Los casos `CP-CHAT-*` salen del código de
+core-api #41 y de JB-92; cuando una persona los vea en el navegador, cambia su estado. Los nombres de prueba se
 verifican con `grep` en `tests/`; si renombras una prueba, corrige aquí su referencia.
