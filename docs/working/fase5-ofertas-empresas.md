@@ -176,7 +176,8 @@ repartió entre el paso 2 y los demás.
       `jb-67-recruiter-panel`; docs `jb-67-db-panel`)*
 - [ ] 8. Matching: cálculo, desglose y recálculo *(5b)*
 - [ ] 9. Práctica de una oferta (HU-31), según la decisión 12 *(5b)*
-- [ ] 10. Borrado de cuenta ampliado (candidato y reclutador)
+- [x] 10. Borrado de cuenta ampliado (candidato y reclutador). *(Candidato en el paso 6; reclutador en core-api
+      `jb-68-recruiter-deletion`, docs `jb-68-db-authorship`)*
 - [ ] 11. Frontend del candidato
 - [ ] 12. Frontend del reclutador
 - [ ] 13. Recorrido en navegador con las dos caras y cierre
@@ -501,3 +502,9 @@ Agregadas en la revisión contra el código del 2026-11-10:
     de estado y su fila de `access_audit` se confirman juntos.
   - Al retirar, el favorito se borra si no queda otra aplicación «viva» (`applied`, `under_review`,
     `shortlisted`) en la empresa. Una contratada (`hired`) no lo sostiene.
+- **2026-11-10, paso 10: borrado del reclutador** (`jb-68-recruiter-deletion`). BO1 y BO2 ya habían entrado en el
+  paso 6, y lo central de BO3 (eventos y ofertas sin autor) ya lo daban las FK `ON DELETE SET NULL` de los pasos
+  4 y 6: esas pruebas pasaron en verde desde el principio y quedan como regresión. Lo que sí falló en rojo:
+  cinco columnas de autoría sin FK (`companies.updated_by`, `memberships.created_by`/`updated_by`,
+  `company_recruiters.created_by`/`updated_by`) conservaban el id de un administrador borrado. Una migración
+  les pone FK `ON DELETE SET NULL`, y una prueba recorre todas las columnas `*_by` de la base.
