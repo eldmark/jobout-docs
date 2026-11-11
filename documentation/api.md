@@ -258,6 +258,30 @@ con zona. Los ids son UUID. Los formatos exactos quedan fijados por los tests de
 | 429 | `demasiados_intentos` (con `Retry-After`) |
 | 503 | `motor_no_disponible` |
 
+
+#### Redacción con IA del recruiter (JB-88)
+
+El contrato de arriba **no cambia**: mismas rutas, mismas formas, mismos errores. Lo único distinto es
+*quién redacta* `turn.text` del recruiter cuando `AI_REPLIES_ENABLED=true` y hay `OPENROUTER_API_KEY`.
+
+- **El motor determinista decide todo**: qué pregunta o repregunta toca, `kind`, `topic`, cuándo termina
+  (`done`), el score, la cuota y los desbloqueos. El modelo recibe la pregunta ya elegida y solo la
+  *reformula* con la personalidad del recruiter (más, a veces, una reacción breve a la última respuesta).
+  Nunca decide ni cambia `kind`, `topic` ni `done`.
+- **Se redacta**: la apertura, las repreguntas y la pregunta siguiente. **No se redacta**: el cierre y el
+  «responde, por favor» de una respuesta vacía (siguen con el texto fijo).
+- **Cualquier fallo es silencioso**: sin clave, el interruptor apagado, timeout (`OPENROUTER_TIMEOUT_MS`,
+  8 s por intento), error HTTP, 429, respuesta vacía, demasiado larga (más de 600 caracteres), sin pregunta,
+  en otro idioma o que parezca una fuga del prompt → se usa el texto determinista de ese turno. La persona
+  nunca ve un error por esto y no cambia ningún código de respuesta. Hasta tres modelos, en orden
+  (`OPENROUTER_MODELS`), antes de caer al determinista.
+- **El texto guardado es el final** (el que se mostró), cifrado igual que siempre en
+  `interview_turns.transcript`.
+- **Qué sale del servicio hacia OpenRouter**: el rol y el nivel del recruiter, el título de la oferta si es
+  una práctica de oferta, la pregunta elegida y **los últimos 4 mensajes** de la conversación (**incluidas
+  las respuestas de la persona**, que son lo único que no se puede quitar). Nunca nombre, correo, ids, CV
+  ni nombre de empresa. Ver [security.md](security.md#redacción-con-ia-del-recruiter-jb-88).
+
 ### Ofertas y empresas (Fase 5a)
 
 > **Contrato, todavía sin código.** Lo fija esta sección y los tests de la fase lo congelan

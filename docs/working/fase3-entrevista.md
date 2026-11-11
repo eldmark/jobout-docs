@@ -348,6 +348,10 @@ deterministas (core-api `jb-46-deflake-timing` #24).
    está el valor. Esta fase no lo resuelve; lo hace **medible**. *Alternativa:* integrar el LLM ya;
    exige decidir proveedor, política de no entrenamiento, tope de costo por persona y pruebas con
    respuestas grabadas (`test.md`).
+   **Actualización (JB-88, 2026-11-11): implementado como reformulación (solo redacta), evaluación
+   sigue determinista.** `OpenRouterEngine` envuelve al motor determinista y le pide a un modelo
+   gratuito de OpenRouter que *redacte* lo que dice el recruiter; apagado por defecto
+   (`AI_REPLIES_ENABLED`). Ver [api.md](../../documentation/api.md#redacción-con-ia-del-recruiter-jb-88).
 2. **Idioma.** Los cuatro primeros en español y Sofía en inglés, con un banco propio cada uno.
 3. **Longitud.** 6 preguntas principales y hasta 2 repreguntas por pregunta; tope de 40 turnos.
 4. **Transcripción cifrada.** *Recomendado:* sí, como la descripción de las experiencias. Consecuencia:
@@ -369,7 +373,7 @@ quedan anotadas para que las confirme o las cambie.
 
 | # | Decisión | Lo que quedó en el código |
 |---|---|---|
-| 1 | Motor | `InterviewEngine` con motor determinista por defecto (`interview::default_engine`) y `ScriptedEngine` para pruebas |
+| 1 | Motor | `InterviewEngine` con motor determinista por defecto (`interview::default_engine`) y `ScriptedEngine` para pruebas. JB-88: `OpenRouterEngine` opcional que solo redacta (la evaluación sigue determinista) |
 | 2 | Idioma | Ana, Martín, Laura y Carlos en español; Sofía en inglés (semillas y bancos propios) |
 | 3 | Longitud | 6 o 7 preguntas principales por banco (64 en 10 bancos: recruiter × Junior/Startup), hasta 2 repreguntas por pregunta (`MAX_FOLLOW_UPS`), tope de 40 turnos |
 | 4 | Transcripción cifrada | Sí: `interview_turns.transcript` es `bytea` cifrado; se descifra solo al leer |

@@ -7,6 +7,19 @@ Entrada más reciente arriba. No borres entradas viejas: se van quedando como hi
 
 ---
 
+## 2026-11-11 — Redacción con IA del recruiter, modelos gratuitos de OpenRouter (JB-88)
+
+**Qué se hizo.** `OpenRouterEngine` (core-api `jb-88-ai-replies`) envuelve al motor determinista y solo
+*redacta* lo que dice el recruiter (apertura, repreguntas, pregunta siguiente); qué se pregunta, cuándo se
+termina, el score, la cuota y los desbloqueos siguen deterministas. Apagado por defecto
+(`AI_REPLIES_ENABLED`). Cualquier fallo cae al texto determinista sin avisar. Los modelos y las variables
+están en [desarrollo.md](../documentation/desarrollo.md); lo que sale hacia OpenRouter, en
+[security.md](../documentation/security.md#redacción-con-ia-del-recruiter-jb-88).
+
+**Pendiente.** (1) Aviso en la pantalla de inicio de la entrevista (`jobout-web`): los modelos gratuitos
+pueden registrar y entrenar con los prompts; **no encender con personas reales antes**. (2) Calidad real:
+los modelos gratuitos a veces hablan como el candidato o repiten saludos; se mide con Luis, no con tests.
+
 ## 2026-11-11 — Recorrido en el navegador del MVP (JB-84)
 
 Recorrido de punta a punta con Chrome sobre `http://127.0.0.1:3100`, con `develop` de los tres repos

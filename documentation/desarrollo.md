@@ -138,6 +138,32 @@ Los valores por defecto sirven para desarrollo local. Estos no tienen default po
 | `PII_ENCRYPTION_KEY` · `PII_HASH_KEY` | core-api | `openssl rand -base64 32`, **dos distintas** |
 | `S3_*` | core-api | Bucket privado de desarrollo |
 
+### Respuestas del recruiter con IA (opcional, JB-88)
+
+Todo opcional: sin esto, el recruiter es el determinista de siempre. Variables de core-api (están en su
+`.env.example`, y llegan por `env_file`):
+
+| Variable | Defecto | Qué hace |
+|---|---|---|
+| `AI_REPLIES_ENABLED` | `false` | Solo `true` o `1` enciende la redacción con IA. Sin clave, sigue siendo determinista |
+| `OPENROUTER_API_KEY` | vacía | Tu clave de OpenRouter. **Solo en tu `.env` (ignorado por git)**; nunca en el código, el compose ni un PR |
+| `OPENROUTER_MODELS` | los del código | Lista separada por comas, en orden; vacía usa los modelos gratuitos por defecto |
+| `OPENROUTER_TIMEOUT_MS` | `8000` | Espera máxima por modelo, en milisegundos (tope 20000) |
+
+**Modelos gratuitos por defecto** (elegidos el 2026-11-11 consultando `https://openrouter.ai/api/v1/models`:
+precio de prompt y completion `"0"`, id con `:free`, salida de texto), y probados en vivo en español e inglés:
+
+1. `google/gemma-4-31b-it:free` — el mejor español; a veces responde 429 por cupo, y entonces pasa al siguiente.
+2. `nvidia/nemotron-3.5-lightning:free` — rápido (~1,5 s); sin razonamiento.
+3. `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free` — respaldo.
+
+Los modelos gratuitos cambian o desaparecen sin aviso: si uno deja de existir, el motor lo salta y cae
+al siguiente (y, al final, al determinista). Se piden con el razonamiento apagado (`reasoning.enabled=false`):
+con él encendido gastan todos los tokens pensando y devuelven vacío. **Antes de encender esto con personas
+reales** lee [security.md](security.md#redacción-con-ia-del-recruiter-jb-88): los modelos gratuitos pueden
+registrar los prompts y la persona tiene que saberlo. Prueba en vivo manual (ignorada en CI):
+`OPENROUTER_API_KEY=... cargo test --test interview_ai_replies_live -- --ignored --nocapture`.
+
 Las dos claves de PII son distintas a propósito: una cifra, la otra genera el hash con el que
 se busca por email. Si se filtra una, la otra sigue protegiendo. Ver [security.md](security.md).
 
