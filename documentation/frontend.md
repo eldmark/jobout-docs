@@ -136,9 +136,10 @@ El dashboard muestra «Practica una entrevista» y, si hay una sesión `in_progr
   carpetas que responden 401 en JSON por sí mismas.
 - Todavía no hay audio: la sala de voz, el WebSocket y el avatar son de la Fase 4.
 
-## Ofertas y lado empresa (Fase 5a) — plan de rutas
+## Ofertas y lado empresa (Fase 5a)
 
-Plan, sin código todavía. Contrato en [api.md](api.md#ofertas-y-empresas-fase-5a). Todas las páginas son
+Implementado en `jobout-web` #15 (candidato, paso 11) y #17 (reclutador y plataforma, paso 12), sin
+mergear al escribir esto. Contrato en [api.md](api.md#ofertas-y-empresas-fase-5a). Todas las páginas son
 protegidas, con los textos en `lib/messages/es.ts` (tuteo) y los tres estados (cargando, vacío, error).
 
 **Candidato**
@@ -174,3 +175,29 @@ Reglas:
   descripciones de oferta (SX7).
 - Un 429 explica cuánto esperar (`Retry-After`) sin perder lo escrito. Los 403 `empresa_no_verificada` y
   `membresia_vencida` tienen su pantalla propia, no un error genérico.
+
+Lo que se decidió al implementar (detalle en las secciones «Cómo se resolvió» de web #15 y #17):
+
+- **Menú por rol** (`lib/auth/menu.ts`): «Ver ofertas» y «Mis aplicaciones» con el rol `applicant`;
+  «Registrar mi empresa» para quien no tiene rol de empresa (lleva a `/company`, que es crear la empresa o
+  pegar un código de invitación); «Mi empresa» y «Ofertas de mi empresa» con `company_admin` o
+  `recruiter`; «Empresas por verificar» con `admin`. Las páginas no se esconden por rol: explican lo que
+  responda la API.
+- **La capa servidor no reenvía lo que el contrato no conoce**: los parámetros de consulta desconocidos se
+  descartan; los valores ilegales de los conocidos (`sort`, `favorite`, una nota de más de 500) son 422
+  sin llamar a `core-api`; los campos de cuerpo fuera del contrato (edad, género, `featured`, `status`…)
+  no pasan. `consent` tiene que ser exactamente `true`.
+- **Consentimiento**: diálogo propio (el de confirmación solo dejaba llegar con Tab a sus botones). El
+  perfil se pide al abrirlo, no al ver la oferta; lo que falta sale como «No tienes … en tu perfil».
+- **Invitaciones**: el código es una credencial: se pega en un formulario POST, nunca va en una URL, se
+  muestra una sola vez con «Copiar» y no se guarda.
+- **«Publicar» vive en el formulario de la oferta**, con el motivo cuando está deshabilitado (estado de la
+  empresa, cambios sin guardar, campos que faltan, en ese orden). Con aplicaciones, solo descripción,
+  horario, vacantes y fecha de contratación se editan; «confidencial» queda fija tras la primera
+  publicación.
+- **Panel**: el detalle va en una región lateral (el foco pasa a su título); cambiar de estado abre un
+  diálogo con la nota interna y, en una confidencial, el aviso de que «Preseleccionada» revela la empresa.
+- Las fechas `YYYY-MM-DD` se formatean en UTC (si no, Guatemala mostraba el día anterior).
+- Catálogos que sirve la capa servidor para los formularios: `countries`, `states`, `cities` (con
+  `state_id` válido), `contract-types`, `salary-ranges`, `working-shifts`, `employment-sectors`,
+  `driver-licenses` y los de la Fase 2.

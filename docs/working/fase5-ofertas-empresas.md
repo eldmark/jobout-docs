@@ -178,9 +178,10 @@ repartió entre el paso 2 y los demás.
 - [ ] 9. Práctica de una oferta (HU-31), según la decisión 12 *(5b)*
 - [x] 10. Borrado de cuenta ampliado (candidato y reclutador). *(Candidato en el paso 6; reclutador en core-api
       `jb-68-recruiter-deletion`, docs `jb-68-db-authorship`)*
-- [ ] 11. Frontend del candidato
-- [ ] 12. Frontend del reclutador
-- [ ] 13. Recorrido en navegador con las dos caras y cierre
+- [x] 11. Frontend del candidato. *(web `jb-69-candidate-offers-ui` #15)*
+- [x] 12. Frontend del reclutador. *(web `jb-71-recruiter-ui` #17; incluye `/admin/companies`)*
+- [ ] 13. Recorrido en navegador con las dos caras y cierre. *(Recorrido de un agente hecho el 2026-11-11; faltan
+      el de una persona y los criterios de cierre)*
 
 ## Casos de verdad
 
@@ -508,3 +509,23 @@ Agregadas en la revisión contra el código del 2026-11-10:
   cinco columnas de autoría sin FK (`companies.updated_by`, `memberships.created_by`/`updated_by`,
   `company_recruiters.created_by`/`updated_by`) conservaban el id de un administrador borrado. Una migración
   les pone FK `ON DELETE SET NULL`, y una prueba recorre todas las columnas `*_by` de la base.
+- **2026-11-11, paso 13: recorrido en el navegador con las dos caras, hecho por un agente** contra `core-api`
+  real (`jb-68-recruiter-deletion`, que incluye el panel) y `jobout-web` en `next start` (`jb-71-recruiter-ui`,
+  que incluye el paso 11). Cuentas de prueba locales. **No reemplaza la pasada de una persona.**
+  - Registro → «Registrar mi empresa» → empresa creada «En verificación»; la descripción con `<b>` sale como texto ✅
+  - Admin de plataforma (rol dado por SQL: a propósito no hay ruta que lo dé): «Empresas por verificar» →
+    verificar → membresía; cada acción con su fila en `access_audit` ✅
+  - Oferta nueva: municipio habilitado al elegir departamento; «Publicar» deshabilitado con «Para publicar
+    falta: las vacantes.»; guardar → publicar; «confidencial» queda fija ✅
+  - Candidata: ve la oferta en `/offers`; el `<script>` de la descripción sale como texto y no hay ningún
+    elemento `script` inyectado (SX7); diálogo de consentimiento con los tres obligatorios bloqueados, el
+    contacto desmarcado y «Enviar» deshabilitado hasta aceptar (FC2) → aplicó; «Mis aplicaciones»: «Enviada» ✅
+  - Panel: la lista solo trae «Ana P.»; el detalle solo lo compartido (el correo, que marcó); solo la
+    transición que permite la máquina; mover a «En revisión» con nota → la nota en el historial; favorita
+    (`aria-pressed`); `localStorage` y `sessionStorage` vacíos; la nota guardada cifrada; ni el correo ni la
+    nota en los logs de `core-api`; auditoría `application.list`, `application.view`, `application.review` ✅
+  - La candidata ve «En revisión» con su historial y lo que compartió, **sin** la nota ni el favorito ✅
+  - Hallazgos nuevos: BUG-008 y BUG-009 (bajos). Antes, una prueba de humo por la API real (no versionada)
+    había recorrido lo mismo sin la interfaz.
+  - **No cubierto:** invitar y aceptar a un reclutador en el navegador (cubierto por pruebas de componente),
+    retirar desde la interfaz, móvil, modo oscuro y lector de pantalla en estas páginas.

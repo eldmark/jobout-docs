@@ -77,6 +77,16 @@ cambia adentro, pero la página sigue sirviendo lo viejo hasta `docker compose r
 En `jobout-web`, instala con `npm ci`: `package-lock.json` está versionado (aunque figure en
 `.gitignore`) y `npm install` lo reescribe.
 
+**Memoria de Docker Desktop.** Con la asignación por defecto (~4 GB), compilar las pruebas, correr `clippy` y
+tener el servidor de desarrollo recompilando a la vez mata el contenedor (`Exited (137)`). Lo que funciona:
+correr la suite en un contenedor aparte, con menos procesos y sin depender de la sesión:
+
+```bash
+docker compose run -d --rm --no-deps -e TEST_DATABASE_URL=postgres://jobout:jobout@postgres:5432/postgres core-api sh -c 'cargo test --workspace --no-fail-fast -j 4 > target/test-run.log 2>&1'
+```
+
+o subir la memoria en *Settings → Resources* de Docker Desktop.
+
 Las pruebas del backend conviene correrlas **dentro del contenedor**: es Linux como el CI, y las
 pruebas de tiempo usan el reloj de CPU del hilo, que en otros sistemas cae al de pared. Compilar las
 pruebas ahí pide mucha memoria; no hagas el recorrido en el navegador mientras compilan.
