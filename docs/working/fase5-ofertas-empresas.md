@@ -174,7 +174,7 @@ repartió entre el paso 2 y los demás.
       docs `jb-64-db-applications` #31. Incluye el registro de aplicaciones externas y BO1/BO2 del paso 10)*
 - [x] 7. Panel del reclutador: ver aplicaciones, mover estados, favoritos y `access_audit`. *(core-api
       `jb-67-recruiter-panel`; docs `jb-67-db-panel`)*
-- [ ] 8. Matching: cálculo, desglose y recálculo *(5b)*
+- [x] 8. Matching: cálculo, desglose y recálculo *(5b; core-api `jb-80-matching`; contrato en `api.md`, «Matching (Fase 5b)»; calculado al leer, sin tabla)*
 - [ ] 9. Práctica de una oferta (HU-31), según la decisión 12 *(5b)*
 - [x] 10. Borrado de cuenta ampliado (candidato y reclutador). *(Candidato en el paso 6; reclutador en core-api
       `jb-68-recruiter-deletion`, docs `jb-68-db-authorship`)*
@@ -529,3 +529,9 @@ Agregadas en la revisión contra el código del 2026-11-10:
     había recorrido lo mismo sin la interfaz.
   - **No cubierto:** invitar y aceptar a un reclutador en el navegador (cubierto por pruebas de componente),
     retirar desde la interfaz, móvil, modo oscuro y lector de pantalla en estas páginas.
+- **2026-11-11, paso 8: matching** (core-api `jb-80-matching`, docs `jb-80-docs-matching`). Puntaje 0–100 puro
+  y explicable (habilidades 50, idiomas 15, experiencia 20, nivel académico 15), calculado **al leer**: sin
+  `job_matches`, sin cola ni tarea (decisión 8 resuelta por la vía simple; no hay migración). `sort=match`,
+  `match` en `/offers` y `match_score` como décimo campo compartible; el reclutador lo recibe calculado solo
+  con lo consentido. Quedan fuera ubicación, salario, turno, contrato y licencia (no están en el perfil;
+  decisión 14). Ver «Desviaciones y límites del MVP» en `api.md`.
