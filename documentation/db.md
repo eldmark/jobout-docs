@@ -441,7 +441,22 @@ Los topes (20 por empresa y día, 50 pendientes) se cuentan sobre estas filas.
 
 ### `company_favorite_applicants`
 
-`company_id` FK · `applicant_id` FK · unique compuesto.
+Migración `m20261111_000001_create_company_favorites` (Fase 5a, paso 7). Contrato en
+[api.md](api.md), «Panel del reclutador».
+
+| Columna | Tipo | Notas |
+|---|---|---|
+| `id` | uuid v7 | PK |
+| `company_id` | uuid | NOT NULL, FK → `companies`, `ON DELETE CASCADE`: el favorito es de la empresa |
+| `applicant_id` | uuid | NOT NULL, FK → `applicants`, **`ON DELETE CASCADE`**: borrar la cuenta borra los favoritos que las empresas tenían sobre ella (BO1). Índice propio |
+| `created_at` | timestamptz | |
+
+**Una fila por (empresa, persona)** (`company_favorite_applicants_company_applicant_key`), no por
+aplicación: se marca sobre una aplicación pero vale para la persona en toda la empresa, y el `PUT`
+es idempotente (`ON CONFLICT DO NOTHING`). No guarda quién lo marcó: el panel no lo necesita y sería
+un dato más que anonimizar (BO3). Al **retirar** una aplicación, la misma transacción borra el
+favorito si a la persona no le queda otra aplicación viva (`applied`, `under_review` o
+`shortlisted`) en esa empresa.
 
 ---
 
@@ -747,10 +762,13 @@ Migración `m20261110_000002_create_companies` (Fase 5a, paso 3).
 |---|---|---|
 | `id` | uuid v7 | PK |
 | `actor_user_id` | uuid | FK → `users`, **`ON DELETE SET NULL`**: el rastro sobrevive a la cuenta, sin su id |
-| `action` | varchar | `company.list`, `company.verify`, `company.unverify`, `company.membership_set` |
-| `resource_type` · `resource_id` | varchar · uuid | `company` y la empresa (nulo en la lista) |
+| `action` | varchar | `company.list`, `company.verify`, `company.unverify`, `company.membership_set`; desde el paso 7, `application.list`, `application.view` y `application.review` |
+| `resource_type` · `resource_id` | varchar · uuid | `company` y la empresa (nulo en la lista); `job_offer` y la oferta (`application.list`); `job_application` y la aplicación (`application.view`, `application.review`) |
 | `ip_hash` | bytea | HMAC de la IP con prefijo de dominio; null si no se conoce. Nunca la IP |
 | `created_at` | timestamptz | |
+
+El índice `(actor_user_id, created_at)` sostiene también el tope de 120 detalles del panel por
+reclutador y hora (SX5), que se cuenta sobre las filas `application.view`.
 
 **Sin el contenido del dato.** El registro de auditoría no puede convertirse en la nueva
 filtración. Por eso la IP va hasheada: ni NIT, ni nombre, ni correo. La fila se escribe en la

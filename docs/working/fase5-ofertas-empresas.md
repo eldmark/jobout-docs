@@ -172,7 +172,8 @@ repartió entre el paso 2 y los demás.
       `jb-63-candidate-offers` #34; docs `jb-63-docs-offers-candidato` #30)*
 - [x] 6. Aplicar con consentimiento; ver mis aplicaciones; retirar. *(core-api `jb-64-applications` #35;
       docs `jb-64-db-applications` #31. Incluye el registro de aplicaciones externas y BO1/BO2 del paso 10)*
-- [ ] 7. Panel del reclutador: ver aplicaciones, mover estados, favoritos y `access_audit`
+- [x] 7. Panel del reclutador: ver aplicaciones, mover estados, favoritos y `access_audit`. *(core-api
+      `jb-67-recruiter-panel`; docs `jb-67-db-panel`)*
 - [ ] 8. Matching: cálculo, desglose y recálculo *(5b)*
 - [ ] 9. Práctica de una oferta (HU-31), según la decisión 12 *(5b)*
 - [ ] 10. Borrado de cuenta ampliado (candidato y reclutador)
@@ -491,3 +492,12 @@ Agregadas en la revisión contra el código del 2026-11-10:
     HTML nunca se toca.
   - **Cierre automático (OF9):** `offers::close_expired(db, now_micros)`; el proceso la corre al arrancar y
     cada hora desde el bucle de limpieza. Pasadas las 00:00 UTC de `hiring_date + 1` la oferta se cierra.
+- **2026-11-10, paso 7: panel del reclutador** (`jb-67-recruiter-panel` en `jobout-core-api`, `jb-67-db-panel`
+  aquí). Casos PA1–PA10, SX2–SX6 y BO1 (favoritos) en `tests/panel.rs`, escritos antes, en rojo. Lo que se
+  decidió al implementar está en `api.md` («Precisiones del paso 7»); lo que más pesa:
+  - Una aplicación sin datos visibles (candidato eliminado, retención vencida) **no se mueve** ni se marca
+    favorita: 409 `estado_invalido`.
+  - `move_status` ahora acepta una transacción abierta: el panel la llama dentro de la suya, así el cambio
+    de estado y su fila de `access_audit` se confirman juntos.
+  - Al retirar, el favorito se borra si no queda otra aplicación «viva» (`applied`, `under_review`,
+    `shortlisted`) en la empresa. Una contratada (`hired`) no lo sostiene.
