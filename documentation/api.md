@@ -804,6 +804,26 @@ De **mi** empresa y de la oferta indicada. La empresa debe estar verificada y co
 - **Quién ve qué dentro de la empresa:** todos los reclutadores de la empresa ven todas las aplicaciones
   de sus ofertas (no hay «mis ofertas» por reclutador en la 5a).
 
+**Precisiones del paso 7** (`jb-67-recruiter-panel`; lo que el contrato dejaba abierto):
+
+- Fuera de `available`, `applicant` es `null` y la clave `shared_fields` **no viaja**, ni en la lista
+  ni en el detalle. `history[].from` es `null` en el primer paso (`applied`).
+- **Una aplicación no `available` no se mueve** (candidato eliminado o retención vencida; la retirada
+  ya era final): 409 `estado_invalido` con su estado. Sin datos que ver no hay nada que decidir.
+- `note` se recorta; vacía o solo espacios equivale a no mandarla. El tope de 500 es en caracteres.
+- `sort` vacío → `datos_invalidos`; cualquier otro valor fuera de `recent`·`oldest` (incluido `match`,
+  que en el panel no es un valor futuro) → `parametro_no_permitido`. `favorite` acepta solo `true` o
+  `false` (otro valor → `datos_invalidos`).
+- Los **favoritos** también exigen la empresa vigente (403) y **no** escriben en `access_audit`: no
+  devuelven datos de la persona. `DELETE` sobre una entrada anónima → 204 sin efecto.
+- **Retirar** borra el favorito de la empresa si a la persona no le queda otra aplicación **viva**
+  (`applied`, `under_review` o `shortlisted`) en ella.
+- El tope de 120 detalles se cuenta sobre las filas `application.view` de `access_audit` de la última
+  hora, con un candado por reclutador (no se pasa con peticiones en paralelo). `Retry-After` = hasta que
+  la más vieja salga de la ventana.
+- El cambio de estado, su evento y su fila de auditoría van en **una** transacción: si la auditoría
+  falla, el estado no cambia.
+
 #### No discriminación (HU-52, caso PA9, CA2, OF4)
 
 Es una regla de contrato y se prueba con tests que fallan si aparece un criterio prohibido.

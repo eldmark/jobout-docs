@@ -29,7 +29,7 @@ Corolarios:
 | Nombres | Tablas en **plural, snake_case**: `interview_sessions` |
 | PK | **UUID v7**, nunca `int autoincrement` |
 | Timestamps | `timestamptz`, siempre con zona |
-| Auditoría | Toda tabla lleva `created_at`, `created_by`, `updated_at`, `updated_by` |
+| Auditoría | Toda tabla lleva `created_at`, `created_by`, `updated_at`, `updated_by`. Las de autoría que una ruta llena con el id de una persona son FK → `users` **`ON DELETE SET NULL`**: borrar la cuenta deja la acción sin autor (BO3; ver «Columnas de autoría del lado empresa») |
 | Borrado | `deleted_at timestamptz null`, no `is_deleted boolean` |
 | Estados | Enum de PostgreSQL, nunca `varchar` libre |
 | FK | Declaradas en la base, no solo en el código |
@@ -245,6 +245,7 @@ Migración `m20261110_000002_create_companies` (Fase 5a, paso 3).
 | `role` | varchar | `company_admin` o `recruiter` (`CHECK`). Es la verdad de «mi rol en la empresa»; el rol de la cuenta (`user_roles`) lo da la misma transacción |
 | `position` | varchar | null (cargo; la 5a no lo pide) |
 | `deleted_at` | timestamptz | null. Quitar a alguien lo marca, no borra la fila |
+| `created_by` · `updated_by` | uuid | null. FK → `users`, `ON DELETE SET NULL` (paso 10): quién lo dio de alta y quién lo quitó |
 
 **Una persona, una empresa**, garantizado por el índice único **parcial**
 `company_recruiters_one_company_per_user` (`UNIQUE (user_id) WHERE deleted_at IS NULL`): quien salió
@@ -404,6 +405,20 @@ Migración `m20261110_000002_create_companies` (Fase 5a, paso 3).
 | `employment_sector_id` | uuid | FK → `employment_sectors` |
 | `created_by` | uuid | FK → `users`, **`ON DELETE SET NULL`**: de ahí sale el dominio del correo que ve el admin de plataforma; si la cuenta se borra, queda `null` |
 
+### Columnas de autoría del lado empresa
+
+Migración `m20261111_000002_anonymize_company_authorship` (Fase 5a, paso 10, BO3). `companies.updated_by`,
+`memberships.created_by`/`updated_by` y `company_recruiters.created_by`/`updated_by` se crearon sin FK y
+conservaban el id de una cuenta ya borrada (quien editó o verificó la empresa, quien fijó la membresía,
+quien dio de alta o quitó a un reclutador). Pasan a FK → `users` `ON DELETE SET NULL`, con un índice
+parcial `WHERE … IS NOT NULL` cada una, como ya eran `companies.created_by`, `job_offers.created_by` y
+`job_application_events.changed_by`. `up` primero pone en `null` los ids que ya no existen; `down` quita
+las FK y los índices.
+
+Así, al borrar la cuenta de un reclutador o un administrador, sus decisiones quedan **sin autor** en la
+misma transacción del borrado, y una prueba (`tests/recruiter_deletion.rs`) recorre **todas** las columnas
+`uuid` `*_by` de la base y falla si alguna conserva el id.
+
 ### `memberships`
 
 **Solo de empresas** (plan Empresarial). Los planes de personas viven en `user_subscriptions`.
@@ -414,6 +429,9 @@ Migración `m20261110_000002_create_companies` (Fase 5a, paso 3).
 | `membership_type_id` | FK a catálogo (`membership_types`; hoy solo `business`) |
 | `start_date` · `expiration_date` | `date`; `CHECK (expiration_date >= start_date)` |
 | `status` | enum `membership_status` `active` · `expired` · `cancelled` |
+
+`created_by` · `updated_by`: FK → `users`, `ON DELETE SET NULL` (paso 10). Los llena el admin de la
+plataforma que fija la membresía.
 
 **Una sola `active` por empresa** (índice único parcial `memberships_one_active_per_company`); el
 historial (`cancelled`, `expired`) no tiene tope. `PUT /admin/companies/{id}/membership` cancela la
@@ -441,7 +459,22 @@ Los topes (20 por empresa y día, 50 pendientes) se cuentan sobre estas filas.
 
 ### `company_favorite_applicants`
 
-`company_id` FK · `applicant_id` FK · unique compuesto.
+Migración `m20261111_000001_create_company_favorites` (Fase 5a, paso 7). Contrato en
+[api.md](api.md), «Panel del reclutador».
+
+| Columna | Tipo | Notas |
+|---|---|---|
+| `id` | uuid v7 | PK |
+| `company_id` | uuid | NOT NULL, FK → `companies`, `ON DELETE CASCADE`: el favorito es de la empresa |
+| `applicant_id` | uuid | NOT NULL, FK → `applicants`, **`ON DELETE CASCADE`**: borrar la cuenta borra los favoritos que las empresas tenían sobre ella (BO1). Índice propio |
+| `created_at` | timestamptz | |
+
+**Una fila por (empresa, persona)** (`company_favorite_applicants_company_applicant_key`), no por
+aplicación: se marca sobre una aplicación pero vale para la persona en toda la empresa, y el `PUT`
+es idempotente (`ON CONFLICT DO NOTHING`). No guarda quién lo marcó: el panel no lo necesita y sería
+un dato más que anonimizar (BO3). Al **retirar** una aplicación, la misma transacción borra el
+favorito si a la persona no le queda otra aplicación viva (`applied`, `under_review` o
+`shortlisted`) en esa empresa.
 
 ---
 
@@ -747,10 +780,13 @@ Migración `m20261110_000002_create_companies` (Fase 5a, paso 3).
 |---|---|---|
 | `id` | uuid v7 | PK |
 | `actor_user_id` | uuid | FK → `users`, **`ON DELETE SET NULL`**: el rastro sobrevive a la cuenta, sin su id |
-| `action` | varchar | `company.list`, `company.verify`, `company.unverify`, `company.membership_set` |
-| `resource_type` · `resource_id` | varchar · uuid | `company` y la empresa (nulo en la lista) |
+| `action` | varchar | `company.list`, `company.verify`, `company.unverify`, `company.membership_set`; desde el paso 7, `application.list`, `application.view` y `application.review` |
+| `resource_type` · `resource_id` | varchar · uuid | `company` y la empresa (nulo en la lista); `job_offer` y la oferta (`application.list`); `job_application` y la aplicación (`application.view`, `application.review`) |
 | `ip_hash` | bytea | HMAC de la IP con prefijo de dominio; null si no se conoce. Nunca la IP |
 | `created_at` | timestamptz | |
+
+El índice `(actor_user_id, created_at)` sostiene también el tope de 120 detalles del panel por
+reclutador y hora (SX5), que se cuenta sobre las filas `application.view`.
 
 **Sin el contenido del dato.** El registro de auditoría no puede convertirse en la nueva
 filtración. Por eso la IP va hasheada: ni NIT, ni nombre, ni correo. La fila se escribe en la
