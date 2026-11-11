@@ -260,8 +260,8 @@ con zona. Los ids son UUID. Los formatos exactos quedan fijados por los tests de
 
 > **Contrato, todavía sin código.** Lo fija esta sección y los tests de la fase lo congelan
 > (`tests/companies.rs`, `tests/offers.rs`, `tests/applications.rs`, `tests/panel.rs`). Cubre las
-> HU-32 y HU-50 a HU-56. El matching (`sort=match`, puntaje) y la práctica de una oferta (HU-31) son
-> de la 5b: hasta entonces cualquier parámetro o campo que los nombre es **desconocido** y da 422.
+> HU-32 y HU-50 a HU-56. El matching (`sort=match`, `match`, `match_score`) es el paso 8 (5b): ver «Matching
+> (Fase 5b)». La práctica de una oferta (HU-31) pasó a la Fase 4 (decisión 12).
 > Casos de verdad en [docs/working/fase5-ofertas-empresas.md](../docs/working/fase5-ofertas-empresas.md).
 
 Bajo `/api/v1`. Reglas comunes, además de las de «Reglas para todo endpoint» y las de la Fase 3:
@@ -555,12 +555,12 @@ formado) → **404 `no_encontrado` idéntico** (CA5).
 - **Qué implementa el paso 5 (HU-30, sin matching).** Visible también exige que la `hiring_date` no
   haya pasado (una oferta vencida por fecha se oculta aunque la tarea diaria aún no la cierre). Hasta
   el paso 6 `my_application` es siempre `null` (no existen aplicaciones). Los criterios de orden que
-  no existen (`sort=name`, `company`, `age`...) son `parametro_no_permitido`; solo `sort=match`
-  (5b) o un `sort` vacío o repetido son `datos_invalidos`. El cursor es opaco y solo sirve para el
+  no existen (`sort=name`, `company`, `age`...) son `parametro_no_permitido`; un `sort` vacío
+  o repetido es `datos_invalidos`. El cursor es opaco y solo sirve para el
   `sort` con el que se emitió (otro → 422 `datos_invalidos`). Mirar ofertas no escribe nada ni
   tiene límite de lecturas propio: la tabla de «Tasas y límites» no lo prevé.
-- Orden fijo: `publication_date` descendente, con `id` de desempate. `sort` acepta solo `recent`
-  (defecto) y `oldest`; `sort=match` es de la 5b y hoy → 422 `datos_invalidos`. Todos los filtros son
+- Orden fijo: `publication_date` descendente, con `id` de desempate. `sort` acepta `recent`
+  (defecto), `oldest` y `match` (ver «Matching (Fase 5b)»). Todos los filtros son
   ids de catálogo; cada uno puede venir una sola vez.
 - **Nunca** se devuelve `created_by`, datos de reclutadores (nombre, correo), `status`,
   `applications_count`, `featured` ni el `tax_id`/teléfono de la empresa (CA4).
@@ -603,12 +603,13 @@ importante:
    | `profile_description` | la descripción profesional del perfil | no |
    | `email` | correo (**contacto**) | no |
    | `phone` | teléfono (**contacto**) | no |
+   | `match_score` | tu puntaje de coincidencia con esta oferta, calculado **solo con lo que marcaste** (ver «Matching (Fase 5b)») | no |
 
    El mínimo (`display_name`, `skills`, `experience`) siempre va: sin él el reclutador no tiene con
    qué evaluar y la aplicación se reduciría a un nombre. Cualquier nombre fuera de la tabla, repetido,
    o una lista que no sea de cadenas → 422 `datos_invalidos`; **faltan** los obligatorios → 422
-   `datos_invalidos`. Hasta 9 elementos (el cuerpo cabe en el tope de 8 KB). Los nombres de la 5b
-   (`match_score`, `interview_score`) hoy son desconocidos.
+   `datos_invalidos`. Hasta 10 elementos (el cuerpo cabe en el tope de 8 KB). `interview_score` sigue
+   siendo desconocido (no está decidido qué entrevista contaría).
 3. **Qué puede ver el reclutador, jamás más que eso:** solo lo marcado. Lo no marcado **no viaja** en la
    respuesta (la clave no existe, no es `null`). **Nunca**, marque lo que marque la persona: el archivo
    del CV (no hay ruta para ello, ni URL firmada ni `storage_key`), dirección, documento de identidad,
@@ -847,7 +848,7 @@ Es una regla de contrato y se prueba con tests que fallan si aparece un criterio
 
 #### Borrado y retención (BO1–BO4, decisión 5)
 
-- **`DELETE /me` de un candidato** borra, en la misma transacción que ya existe, sus matches (5b),
+- **`DELETE /me` de un candidato** borra, en la misma transacción que ya existe, sus matches (5b: no hay tabla que borrar, el puntaje no se guarda),
   los favoritos que las empresas tenían sobre ella (`company_favorite_applicants`) y sus registros
   externos (`external_applications`). Sus **aplicaciones no se borran**: pierden `applicant_id` y
   `shared_fields` (queda `[]`) y quedan en el panel como **«candidato eliminado»**
@@ -879,6 +880,103 @@ Es una regla de contrato y se prueba con tests que fallan si aparece un criterio
 Los contadores salen de filas ya existentes (aplicaciones, ofertas, invitaciones, `access_audit`) o de
 una tabla de intentos, como `login_attempts`; nunca de memoria del proceso. Todo 429 lleva `Retry-After`
 en segundos enteros.
+
+### Matching (Fase 5b)
+
+Paso 8 de `working/fase5-ofertas-empresas.md` (HU-30, casos MA1–MA10). Decisión 4 (el reclutador ve el
+puntaje **solo si la persona lo comparte**) y 14 (sin `job_preferences`) con la opción recomendada. La
+decisión 8 se resolvió de otra forma: ver «Desviaciones».
+
+#### El puntaje
+
+`score` entero 0–100 = puntos de los componentes que **aplican** ÷ suma de sus pesos × 100, redondeado.
+Un componente que la oferta no pide, o cuyo dato la persona no compartió con el reclutador, **no aplica**
+y su peso no entra en la cuenta.
+
+| Componente | Peso | Aplica si la oferta… | Puntos |
+|---|---|---|---|
+| `skills` | 50 | tiene habilidades | Cada una pesa 2 si es obligatoria y 1 si no. Con nivel ≥ `min_level` (o sin `min_level`): completa; por debajo, o sin nivel cuando se pide uno: la mitad; no la tiene: 0 |
+| `languages` | 15 | tiene idiomas | Cada idioma: dominio ≥ `min_proficiency` completo; menor, la mitad; ausente, 0. Orden `basic` < `intermediate` < `advanced` < `native` |
+| `experience` | 20 | `is_experience_required` y `required_experience` > 0 | `min(1, años ÷ requeridos)`. Años = **unión** de los periodos de `applicant_experiences` (dos empleos a la vez no suman doble); un empleo actual cuenta hasta hoy |
+| `academic_level` | 15 | fija `minimum_academic_level_id` | Completo si el `sort_order` del nivel de la persona ≥ el pedido; si no, 0 |
+
+- Ningún componente aplica (la oferta solo pide licencias, por ejemplo): `score` 0 y
+  `breakdown.reason = "sin_requisitos_comparables"`.
+- Perfil vacío: puntaje bajo con su explicación (`empty_profile: true`), nunca error ni `NaN` (MA10).
+- **Lo que el matching no puede leer** (MA4, MA5): edad, género, estado civil, nombre, foto, dirección,
+  correo, teléfono, CV. La función pura recibe solo habilidades, idiomas, periodos de experiencia y el
+  `sort_order` del nivel académico; pruebas la alimentan con esos datos de más y exigen el mismo
+  puntaje, y otra recorre su código y falla si nombra uno.
+- Mismo perfil y misma oferta → mismo puntaje y desglose (MA1). «Hoy» entra como parámetro.
+- Criterios del plan sin dato en el perfil (ubicación, expectativa salarial, turno, tipo de contrato,
+  licencia de conducir): **no entran**. `job_preferences` no está migrada (decisión 14) y la licencia
+  de la persona no está en su perfil. Entrarán cuando exista dónde guardarlos.
+
+```jsonc
+// match: en cada oferta del listado y en el detalle de /offers, de quien llama. Siempre presente.
+{ "score": 67,
+  "breakdown": {
+    "reason": null,                         // o "sin_requisitos_comparables"
+    "empty_profile": false,
+    "components": [                         // siempre los cuatro, en este orden
+      { "key": "skills", "weight": 50, "points": 33.3, "applies": true,
+        "matched": [ { "skill": {id, code, name}, "required": true } ],
+        "partial": [ { "skill": {...}, "required": false, "min_level": "advanced", "level": "intermediate" } ],  // level puede ser null
+        "missing": [ { "skill": {...}, "required": true } ] },
+      { "key": "languages", "weight": 15, "points": 15, "applies": true,
+        "matched": [ { "language": {...}, "min_proficiency": "intermediate", "proficiency": "advanced" } ],
+        "partial": [], "missing": [ { "language": {...}, "min_proficiency": "basic" } ] },
+      { "key": "experience", "weight": 20, "points": 10, "applies": true, "required_years": 4, "years": 2 },
+      { "key": "academic_level", "weight": 15, "points": 0, "applies": false, "reason": "no_pedido" } ] } }
+```
+
+`points` y `years` llevan a lo sumo un decimal. Un componente que no aplica trae `points: 0`, `applies:
+false` y `reason`: `no_pedido` (la oferta no lo pide) o `no_compartido` (solo en la vista del
+reclutador). Solo los que aplican traen `matched`/`partial`/`missing` (`skills`, `languages`) o
+`required_years`/`years` (`experience`).
+
+#### Cálculo y recálculo (MA7, MA8)
+
+El puntaje **no se guarda**: se calcula al leer, con el perfil de ese momento y los requisitos de la
+oferta de ese momento, así que cambiar el perfil o la oferta se refleja en la lectura siguiente
+(MA7) y no hay recálculo que bloquee nada ni que repetir (MA8). Leer no escribe. Cada petición hace un
+número fijo de consultas, sin importar cuántas ofertas trae.
+
+#### `GET /offers?sort=match` (MA6)
+
+- Ordena por `match.score` descendente; empate por `publication_date` e `id`, descendentes. El cursor es
+  propio de este orden (guarda el último puntaje, fecha e id) y no sirve en otro.
+- Si la persona **no tiene perfil** (ni habilidades, ni idiomas, ni experiencia, ni nivel académico)
+  ordena por fecha y lo dice: `sorted_by: "recent"`, `match_unavailable: "perfil_vacio"`.
+- Toda respuesta del listado lleva `sorted_by` (`recent` · `oldest` · `match`) y `match_unavailable`
+  (`null` salvo el caso anterior): `{items, next_cursor, sorted_by, match_unavailable}`.
+- `match` es **el de quien llama**; nunca el de otra persona. Los filtros existentes se combinan con
+  `sort=match`.
+
+#### El reclutador (MA9, decisión 4)
+
+- El conjunto cerrado del consentimiento suma **`match_score`** (opcional, desmarcado por defecto): «Tu
+  puntaje de coincidencia con esta oferta». Sigue sin poder ampliarse después de aplicar.
+- En el detalle del panel, si se compartió y la aplicación está disponible: `applicant.match_score =
+  {score, breakdown}` (la misma forma), calculado **únicamente** con los campos que la persona
+  compartió en esa aplicación (`applications::shared_view`): `skills` y `experience` siempre; `languages`
+  y `education` solo si los marcó. Lo no marcado no aplica (`reason: "no_compartido"`) y no cuenta como
+  faltante. Se ve en vivo, como el resto de lo compartido.
+- Sin compartirlo, ningún dato de matching cruza al reclutador: ni en el detalle, ni en la lista del
+  panel, ni en `/company/offers`.
+
+#### Desviaciones y límites del MVP
+
+- **Sin `job_matches` ni `match_refresh` ni tarea de recálculo** (decisión 8 recomendaba una tarea con
+  límite): se calcula al leer. No hay migración. Costo: `sort=match` calcula el puntaje de **todas** las
+  ofertas visibles (con los filtros) en cada petición. Es aceptable mientras haya cientos de ofertas; con
+  miles conviene precalcular (`job_matches`, tarea en segundo plano) sin cambiar este contrato.
+- Sin `computed_at` en `match`: no hay momento de cálculo que mostrar.
+- Los pesos 50 · 15 · 20 · 15 son una primera versión, sin ofertas reales con las que ajustarlos
+  (riesgo de la decisión 13).
+- Un perfil que la persona no compartió completo da, al reclutador, un puntaje sobre menos
+  componentes que el que ve la propia persona. Es a propósito: el reclutador nunca recibe un dato
+  inferido de algo no consentido.
 
 #### Códigos de error del grupo
 

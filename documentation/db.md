@@ -557,7 +557,7 @@ Migración `m20261110_000004_create_applications` (Fase 5a, paso 6). Contrato en
 | `applicant_id` | uuid | **null**, FK → `applicants`, **`ON DELETE SET NULL`**: borrar la cuenta no borra la aplicación; queda como «candidato eliminado» (BO1, PA10) |
 | `job_offer_id` | uuid | NOT NULL, FK → `job_offers` (sin cascada: una oferta con aplicaciones no se borra) |
 | `status` | enum `job_application_status` | `applied` · `under_review` · `shortlisted` · `rejected` · `withdrawn` · `hired`. Por defecto `applied` |
-| `shared_fields` | jsonb | NOT NULL, por defecto `[]`. Lista de **nombres** de campo que la persona aceptó compartir (conjunto cerrado de nueve, ver el contrato), nunca valores: el panel lee el perfil vivo filtrado por ellos. `CHECK` de que es un arreglo |
+| `shared_fields` | jsonb | NOT NULL, por defecto `[]`. Lista de **nombres** de campo que la persona aceptó compartir (conjunto cerrado de diez, ver el contrato), nunca valores: el panel lee el perfil vivo filtrado por ellos. `CHECK` de que es un arreglo |
 | `consented_at` | timestamptz | NOT NULL, por defecto `now()`: lo fija el servidor |
 | `company_revealed_at` | timestamptz | null. Se fija al pasar a `shortlisted` una oferta confidencial; no se borra después (revelación por aplicación, HU-55) |
 | `applied_at` · `status_changed_at` | timestamptz | NOT NULL, por defecto `now()` |
