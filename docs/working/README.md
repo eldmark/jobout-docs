@@ -12,6 +12,6 @@ Cuando una fase cumple todos sus criterios de cierre, se mueve a
 ## Activas
 
 - [`fase2-perfil-cv.md`](fase2-perfil-cv.md) — perfil y CV (HU-02, HU-03, HU-04). Implementada; falta medir con CVs reales y el recorrido de una persona.
-- [`fase3-entrevista.md`](fase3-entrevista.md) — la entrevista en modo texto (HU-10, 12, 14, 15, 20–23). Pasos 1 a 11 en `develop`; faltan la pasada de una persona, la entrevista con Luis y pasar a `main`.
+- [`fase3-entrevista.md`](fase3-entrevista.md) — la entrevista en modo texto (HU-10, 12, 14, 15, 20–23). Pasos 1 a 11 en `main`; faltan la pasada de una persona y la entrevista con Luis.
 - [`fase4-voz-memoria.md`](fase4-voz-memoria.md) — motor de IA, voz y memoria del recruiter (HU-11, HU-13). **Borrador**; depende de la Fase 3.
-- [`fase5-ofertas-empresas.md`](fase5-ofertas-empresas.md) — ofertas, matching y lado empresa (HU-30 a 32, 50 a 56). **Borrador**; independiente de la Fase 4.
+- [`fase5-ofertas-empresas.md`](fase5-ofertas-empresas.md) — ofertas, matching y lado empresa (HU-30 a 32, 50 a 56). Partida en 5a y 5b (decisión 13). **5a: pasos 1 a 6 en `develop`**; faltan 7, 10, 11, 12 y 13. La 5b (matching y HU-31) sin código.

@@ -1,7 +1,8 @@
 # Fase 5 — Ofertas, matching y el lado empresa
 
-**Estado:** borrador revisado contra el código el 2026-11-10 (casos de verdad pendientes de revisión del
-equipo; **no hay código todavía**)
+**Estado:** en curso. Partida en **5a** (pasos 1–7 y 10–13) y **5b** (pasos 8 y 9), decisión 13. De la 5a,
+los pasos 1 a 6 están en `develop` (2026-11-10); faltan 7, 10, 11, 12 y 13. La 5b no tiene código. Las
+decisiones 1–14 se adoptaron con la opción recomendada **sin revisión del equipo** (`jb-60`)
 **Repos que toca:** jobout-core-api, jobout-web, jobout (documentación)
 **Depende de:** Fase 2 (perfil y catálogos). Es **independiente de la Fase 4**: puede ir antes, después
 o en paralelo si tocan repos y tablas distintas. La excepción es HU-31, que usa el motor de entrevista
@@ -157,17 +158,23 @@ con `up` y `down`; `db.md` en el mismo PR).
 Renumerados el 2026-11-10: los pasos 1 y 2 son nuevos y el antiguo paso 3 («control por rol») se
 repartió entre el paso 2 y los demás.
 
-- [ ] 0. **Este documento**: revisión del equipo y decisiones abiertas resueltas.
-- [ ] 1. Catálogos que usan las ofertas, con sus semillas (⇉ con 2)
-- [ ] 2. Roles y permisos: `Access::Permission` en la tabla de rutas, rol de reclutador con permisos
-      sembrados y roles en `GET /me` (⇉ con 1)
-- [ ] 3. Empresas, reclutadores, invitaciones y membresía (migración + endpoints) (⇉ con 4)
-- [ ] 4. Ofertas y sus requisitos (migración + CRUD del reclutador) (⇉ con 3)
-- [ ] 5. Listado y detalle de ofertas para candidatos (incluye las confidenciales)
-- [ ] 6. Aplicar con consentimiento; ver mis aplicaciones; retirar
+- [ ] 0. **Este documento**: revisión del equipo y decisiones abiertas resueltas. *(Decisiones adoptadas
+      con la opción recomendada en `jb-60-fase5a-contract`, docs #25; falta que el equipo las revise.)*
+- [x] 1. Catálogos que usan las ofertas, con sus semillas (⇉ con 2). *(core-api `jb-58-offer-catalogs` #31;
+      docs `jb-58-db-offer-catalogs` #26)*
+- [x] 2. Roles y permisos: `Access::Permission` en la tabla de rutas, rol de reclutador con permisos
+      sembrados y roles en `GET /me` (⇉ con 1). *(core-api `jb-59-route-permissions` #30; docs `jb-59-db-roles` #27)*
+- [x] 3. Empresas, reclutadores, invitaciones y membresía (migración + endpoints) (⇉ con 4). *(core-api
+      `jb-61-companies` #32; docs `jb-61-db-companies` #28)*
+- [x] 4. Ofertas y sus requisitos (migración + CRUD del reclutador) (⇉ con 3). *(core-api `jb-62-offers`
+      #33; docs `jb-62-db-offers` #29)*
+- [x] 5. Listado y detalle de ofertas para candidatos (incluye las confidenciales). *(core-api
+      `jb-63-candidate-offers` #34; docs `jb-63-docs-offers-candidato` #30)*
+- [x] 6. Aplicar con consentimiento; ver mis aplicaciones; retirar. *(core-api `jb-64-applications` #35;
+      docs `jb-64-db-applications` #31. Incluye el registro de aplicaciones externas y BO1/BO2 del paso 10)*
 - [ ] 7. Panel del reclutador: ver aplicaciones, mover estados, favoritos y `access_audit`
-- [ ] 8. Matching: cálculo, desglose y recálculo
-- [ ] 9. Práctica de una oferta (HU-31), según la decisión 12
+- [ ] 8. Matching: cálculo, desglose y recálculo *(5b)*
+- [ ] 9. Práctica de una oferta (HU-31), según la decisión 12 *(5b)*
 - [ ] 10. Borrado de cuenta ampliado (candidato y reclutador)
 - [ ] 11. Frontend del candidato
 - [ ] 12. Frontend del reclutador
