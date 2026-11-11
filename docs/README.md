@@ -13,6 +13,7 @@ va la investigación, allá la conclusión.
 |---|---|
 | [`continue.md`](continue.md) | **Léelo primero.** Traspaso de sesión: qué se hizo, qué quedó a medias, qué sigue |
 | [`bugs.md`](bugs.md) | Bugs abiertos. Solo los abiertos |
+| [`presentacion-mvp.md`](presentacion-mvp.md) | Casos de prueba para presentar el MVP: pasos, resultado esperado, pruebas que los cubren, estado, guion de demo y plan B |
 | [`working/`](working/) | Fases en curso, un archivo por fase |
 | [`archived/`](archived/) | Fases cerradas. **Nunca se borran** |
 
