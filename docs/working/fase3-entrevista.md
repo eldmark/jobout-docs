@@ -1,7 +1,7 @@
 # Fase 3 — La entrevista, en modo texto
 
-**Estado:** en curso (pasos 1 a 11 implementados y mergeados en `develop`; faltan el recorrido de una
-persona, la entrevista con Luis y pasar `develop` a `main`)
+**Estado:** en curso (pasos 1 a 11 implementados y en `main` desde el 2026-11-10; faltan el recorrido de
+una persona y la entrevista con Luis)
 **Repos que toca:** jobout-core-api, jobout-web, jobout (documentación)
 **Abierta:** 2026-11-08
 

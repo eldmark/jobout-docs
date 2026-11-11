@@ -7,6 +7,40 @@ Entrada más reciente arriba. No borres entradas viejas: se van quedando como hi
 
 ---
 
+## 2026-11-10 (cierre del día) — Fase 5a: pasos 1 a 6 en `develop`; docs al día
+
+**Qué se hizo**
+
+- La Fase 5 se partió en **5a** (empresas, ofertas, aplicaciones, panel y las dos caras del frontend) y
+  **5b** (matching y HU-31), según la decisión 13. Contrato HTTP de la 5a en `api.md`, `frontend.md` y
+  `security.md` (`jb-60`, docs #25). Las 14 decisiones se adoptaron con la opción recomendada, **sin
+  revisión del equipo**.
+- **Pasos 1 a 6 de la 5a en `develop`** de core-api (#30 a #35), cada uno con su `db.md` (docs #26 a #31):
+  catálogos de ofertas con semillas de Guatemala; `Access::Permission` en la tabla de rutas, roles
+  `company_admin` y `recruiter`, y roles y permisos en `GET /me`; empresas, invitaciones y verificación por
+  la plataforma (`/admin/companies`, con `access_audit`); CRUD de ofertas del reclutador con su máquina de
+  estados y cierre automático; ofertas públicas para candidatos; aplicaciones con consentimiento, retiro,
+  revelación de las confidenciales y registro privado de aplicaciones externas. BO1 y BO2 (borrar la
+  cuenta deja la aplicación anónima en el panel) ya entraron en el paso 6.
+- `jb-65-fase5a-estado`: pasos marcados en `fase5-ofertas-empresas.md`, estado de las fases en
+  `working/README.md`, y `bugs.md` sin BUG-001 a 003 (cerrados en la tarde; `jb-57` los había vuelto a
+  listar al mergear).
+
+**Qué quedó a medias**
+
+- De la 5a faltan el **paso 7** (panel del reclutador: aplicaciones de una oferta, detalle, cambio de
+  estado y favoritos), el **paso 10** en lo del reclutador (BO3, BO4), los **pasos 11 y 12** (jobout-web
+  no tiene ninguna página de la 5a) y el **13** (recorrido con las dos caras y cierre).
+- `develop` sigue **sin protección** y con «borrar la rama al mergear» activado en docs, core-api y web:
+  el próximo PR `develop → main` la vuelve a borrar. Solo un admin de los repos lo puede cambiar.
+
+**Qué sigue**
+
+1. Paso 7 en core-api y, en paralelo, el frontend del candidato (paso 11): sus endpoints ya están en
+   `develop`.
+2. Paso 10, paso 12 y el recorrido con las dos caras (paso 13); después `develop → main`.
+3. Siguen pendientes los cierres de personas de las Fases 2 y 3 (CVs reales, la entrevista con Luis).
+
 ## 2026-11-10 (noche) — Recorrido en el navegador, hecho por un agente
 
 Contra el entorno local recién levantado desde `main` (`docker compose up --build`, migraciones aplicadas).
