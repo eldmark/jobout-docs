@@ -21,6 +21,7 @@ Entrada más reciente arriba. No borres entradas viejas: se van quedando como hi
 | web | #17 | Paso 12: frontend del reclutador y `/admin/companies`. **Apilado sobre #15** |
 | web | #18 | BUG-007: las pruebas esperan el texto de la alerta (la misma carrera en cinco archivos) |
 | web | #19 · #20 | BUG-008 (estados vacíos en el panel) y BUG-009 (texto del 403). **Apilados sobre #17** |
+| web | #21 | BUG-010: «1 año» en singular. **Apilado sobre #19** |
 | docs | #32 → #33 → #34 → este | Estado de la 5a, `db.md` del panel, `db.md` de autoría, y este cierre del día. Cada uno apilado sobre el anterior |
 
 - Pruebas: core-api **851 en verde** dentro del contenedor (Rust 1.90), `clippy -D warnings` y `fmt --check`
@@ -34,7 +35,7 @@ Entrada más reciente arriba. No borres entradas viejas: se van quedando como hi
 
 1. docs #32 → #33 → #34 → este (`jb-72-fase5a-recorrido`).
 2. core-api #36 → #37.
-3. web #14, #16 y #18 cuando quieran; #15 → #17 → #19 y #20.
+3. web #14, #16 y #18 cuando quieran; #15 → #17 → #19 → #21, y #20 después de #17.
 
 GitHub reapunta un PR apilado a `develop` cuando se mergea el de abajo, pero el CI de «PR completo» no siempre
 corre con el reapunte ni al editar el cuerpo: si queda sin check, **cerrar y reabrir el PR** (pasó en
@@ -46,7 +47,7 @@ core-api #36). El check de migraciones busca el texto literal `documentation/db.
 - `develop` sigue **sin protección** y con «borrar la rama al mergear» en docs, core-api y web.
 - Los criterios de cierre de la 5a que piden personas: una empresa real que publique, una persona real que
   aplique, la revisión del tratamiento de datos y el recorrido de una persona.
-- BUG-007, BUG-008 y BUG-009 con su arreglo en un PR (web #18, #19, #20); BUG-010 («1 años») sin arreglar.
+- BUG-005 a BUG-010 tienen su arreglo en un PR de web (#14, #16, #18, #19, #20, #21): se cierran al mergear.
 - La base de desarrollo local quedó con las cuentas, empresas y ofertas de prueba del recorrido (dominio
   `jobout-prueba.test`). Para dejarla vacía: `cargo run -p migration -- fresh` dentro del contenedor (borra
   todo).
