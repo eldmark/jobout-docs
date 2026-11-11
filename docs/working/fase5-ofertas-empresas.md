@@ -175,7 +175,7 @@ repartió entre el paso 2 y los demás.
 - [x] 7. Panel del reclutador: ver aplicaciones, mover estados, favoritos y `access_audit`. *(core-api
       `jb-67-recruiter-panel`; docs `jb-67-db-panel`)*
 - [x] 8. Matching: cálculo, desglose y recálculo *(5b; core-api `jb-80-matching`; contrato en `api.md`, «Matching (Fase 5b)»; calculado al leer, sin tabla)*
-- [ ] 9. Práctica de una oferta (HU-31), según la decisión 12 *(5b)*
+- [x] 9. Práctica de una oferta (HU-31), según la decisión 12 *(5b; core-api `jb-81-offer-practice`; contrato en `api.md`, «Práctica de una oferta (Fase 5b)»; alternativa mínima, sin migración)*
 - [x] 10. Borrado de cuenta ampliado (candidato y reclutador). *(Candidato en el paso 6; reclutador en core-api
       `jb-68-recruiter-deletion`, docs `jb-68-db-authorship`)*
 - [x] 11. Frontend del candidato. *(web `jb-69-candidate-offers-ui` #15)*
@@ -535,3 +535,9 @@ Agregadas en la revisión contra el código del 2026-11-10:
   `match` en `/offers` y `match_score` como décimo campo compartible; el reclutador lo recibe calculado solo
   con lo consentido. Quedan fuera ubicación, salario, turno, contrato y licencia (no están en el perfil;
   decisión 14). Ver «Desviaciones y límites del MVP» en `api.md`.
+- **2026-11-11, paso 9: práctica de una oferta** (core-api `jb-81-offer-practice`, docs `jb-81-docs-offer-practice`).
+  Decisión 12 con la **alternativa mínima**: `POST /interviews` acepta `job_offer_id`, la apertura nombra el
+  puesto y se añade una pregunta por habilidad obligatoria (3) y por idioma (2) con plantilla fija; el banco
+  y los recruiters no cambian. Sin migración (la FK ya existía). La sesión no es una aplicación y la empresa
+  no la ve. Dos desvíos en `api.md`, «Práctica de una oferta (Fase 5b)»: id mal formado = 404 (PR4) y la
+  oferta se relee en cada turno. Falta la cara web (paso siguiente de HU-31).

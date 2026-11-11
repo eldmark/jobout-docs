@@ -152,7 +152,7 @@ con zona. Los ids son UUID. Los formatos exactos quedan fijados por los tests de
 | `GET /recruiters` | → 200 `{items: [{id, code, display_name, role_title, personality, language}]}` (`language`: `es` \| `en`). Nunca `system_prompt` ni la rúbrica |
 | `GET /levels` | → 200 `{items: [{id, code, name, position, available, unlocked, min_score_to_unlock, best_score, sessions_completed}]}` por `position` ascendente, para **mi** cuenta |
 | `GET /progress` | → 200 `{items: [{session_id, completed_at, level, recruiter, score}]}` |
-| `POST /interviews` | `{recruiter_id, level_id}` → 201 `Interview` con la primera pregunta · 403 `nivel_bloqueado` · 403 `limite_del_plan` · 404 · 409 `nivel_no_disponible` · 409 `sesion_en_curso` · 422 `datos_invalidos` · 503 `motor_no_disponible` |
+| `POST /interviews` | `{recruiter_id, level_id, job_offer_id?}` → 201 `Interview` con la primera pregunta · 403 `nivel_bloqueado` · 403 `limite_del_plan` · 404 · 409 `nivel_no_disponible` · 409 `sesion_en_curso` · 422 `datos_invalidos` · 503 `motor_no_disponible` |
 | `GET /interviews` | `?limit&cursor&status` → 200 `{items: [InterviewSummary], next_cursor}` |
 | `GET /interviews/{id}` | → 200 `Interview` con **todos** los turnos descifrados y en orden |
 | `POST /interviews/{id}/pause` | → 204 · 409 `estado_invalido` |
@@ -175,13 +175,15 @@ con zona. Los ids son UUID. Los formatos exactos quedan fijados por los tests de
 { "id": "uuid", "status": "in_progress",
   "recruiter": { "id": "uuid", "display_name": "Ana", "role_title": "RRHH" },
   "level": { "id": "uuid", "code": "junior", "name": "Junior" },
-  "created_at": "...", "turns": [ /* Turn */ ] }
+  "created_at": "...", "turns": [ /* Turn */ ],
+  "offer": { "id": "uuid", "title": "Analista", "company_name": "Café Nuevo" } }  // solo si es práctica de una oferta
 
 // InterviewSummary (sin transcripción)
 { "id": "uuid", "status": "completed",
   "level": { "id": "uuid", "code": "junior", "name": "Junior" },
   "recruiter": { "id": "uuid", "display_name": "Ana" },
-  "score": 72, "created_at": "...", "completed_at": "..." }   // score y completed_at: null si no hay
+  "score": 72, "created_at": "...", "completed_at": "...",     // score y completed_at: null si no hay
+  "offer": { "id": "uuid", "title": "Analista", "company_name": null } }  // solo si es práctica de una oferta
 
 // Score (finish y GET /score)
 { "score": 72, "clarity": 65, "confidence": null,
@@ -261,7 +263,7 @@ con zona. Los ids son UUID. Los formatos exactos quedan fijados por los tests de
 > **Contrato, todavía sin código.** Lo fija esta sección y los tests de la fase lo congelan
 > (`tests/companies.rs`, `tests/offers.rs`, `tests/applications.rs`, `tests/panel.rs`). Cubre las
 > HU-32 y HU-50 a HU-56. El matching (`sort=match`, `match`, `match_score`) es el paso 8 (5b): ver «Matching
-> (Fase 5b)». La práctica de una oferta (HU-31) pasó a la Fase 4 (decisión 12).
+> (Fase 5b)». La práctica de una oferta (HU-31) se hizo en la 5b con la alternativa mínima de la decisión 12: ver «Práctica de una oferta (Fase 5b)».
 > Casos de verdad en [docs/working/fase5-ofertas-empresas.md](../docs/working/fase5-ofertas-empresas.md).
 
 Bajo `/api/v1`. Reglas comunes, además de las de «Reglas para todo endpoint» y las de la Fase 3:
@@ -880,6 +882,47 @@ Es una regla de contrato y se prueba con tests que fallan si aparece un criterio
 Los contadores salen de filas ya existentes (aplicaciones, ofertas, invitaciones, `access_audit`) o de
 una tabla de intentos, como `login_attempts`; nunca de memoria del proceso. Todo 429 lleva `Retry-After`
 en segundos enteros.
+
+### Práctica de una oferta (Fase 5b)
+
+Paso 9 de `working/fase5-ofertas-empresas.md` (HU-31, casos PR1–PR6). Es `POST /interviews` con un
+campo más; todo lo demás de «Entrevista (Fase 3)» sigue igual. Se adoptó la **alternativa mínima** de la
+decisión 12, no aplazarla a la Fase 4. Los tests están en `tests/interview_offer_practice.rs` (API) y
+`tests/interview_offer_engine.rs` (motor).
+
+- **`job_offer_id`** (UUID, opcional; ausente o `null` = entrevista de siempre). Solo vale una oferta que un
+  candidato **ve hoy**: la misma regla de `GET /offers/{id}` (publicada, con fecha de contratación vigente,
+  de una empresa verificada, activa y con membresía vigente). Borrador, pausada, cerrada, vencida, de una
+  empresa sin verificar, inexistente o con un id que no es UUID → **404 `no_encontrado`**, idéntico en todos
+  los casos y sin gastar cuota. Un valor que no es texto (número, objeto, lista, booleano) → 422
+  `datos_invalidos`.
+- **Orden de validación**: cuerpo (422) → recruiter, nivel y **oferta** existen/visible (404) → nivel
+  disponible (409) → desbloqueado (403) → sin sesión activa (409) → cuota (403). Practicar gasta la cuota
+  del plan igual que cualquier sesión y respeta «una sesión activa».
+- **Las preguntas.** El motor recibe solo el título de la oferta y los **nombres** de sus habilidades
+  obligatorias y de sus idiomas (`OfferFocus`): nunca la empresa, ningún id ni dato de la persona. La
+  entrevista es la del recruiter y nivel elegidos, con tres cambios: la apertura del recruiter lleva una
+  frase con el puesto (`Hoy practicaremos la entrevista para el puesto «…»`); justo después de la
+  apertura va **una pregunta por habilidad obligatoria** (las 3 primeras por código) y **una por idioma**
+  (los 2 primeros) con una plantilla fija; y el resto del banco sigue igual y en orden. Sigue siendo
+  determinista. Títulos y nombres se limpian (espacios) y se cortan a 80 caracteres.
+  Una oferta sin requisitos solo cambia la apertura. Las habilidades deseables no se preguntan.
+- **`offer` en la respuesta**: `Interview` e `InterviewSummary` traen `offer: {id, title, company_name}`
+  cuando la sesión está vinculada; la clave **no aparece** si no. `company_name` es `null` si la oferta es
+  confidencial (PR2: la empresa no sale ni en la respuesta ni en las preguntas).
+- **Nunca es una aplicación ni llega a la empresa** (PR3): no crea `job_applications`, no entra al panel
+  ni a ninguna lectura del reclutador, y la persona puede aplicar después como si nada.
+- **La sesión sobrevive a la oferta.** Si la oferta se cierra, la sesión conserva `offer` (con el título).
+  Si se borra, la FK es `ON DELETE SET NULL`: la sesión sigue, sin `offer`, y las preguntas que quedan son
+  las del banco base.
+
+#### Desviaciones
+
+- **`job_offer_id` mal formado es 404, no 422**, a diferencia de `recruiter_id` y `level_id`: PR4 lo pide
+  así (un id que no es de una oferta visible es siempre el mismo 404).
+- **La oferta se lee otra vez en cada turno** (no se copia a la sesión: no hay migración). Si un
+  reclutador edita los requisitos a mitad de una práctica, las preguntas que faltan se calculan con los
+  nuevos. Si la oferta se borra, vuelve el banco base.
 
 ### Matching (Fase 5b)
 
